@@ -51,17 +51,10 @@ export default function Sidebar({
     },
     {
       id: 'pixel-forge',
-      label: 'Pixel Forge 3D',
+      label: 'Estúdio 3D & Pixel',
       icon: <IconPalette className="w-4 h-4" />,
-      badge: 'Squad 8',
+      badge: '3D Real',
       badgeColor: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-    },
-    {
-      id: 'self-improvement',
-      label: 'Auto-Melhoria',
-      icon: <IconShieldAlert className="w-4 h-4" />,
-      badge: improvementsCount > 0 ? String(improvementsCount) : null,
-      badgeColor: 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700'
     }
   ];
 
@@ -145,6 +138,36 @@ export default function Sidebar({
             );
           })}
         </nav>
+
+        {/* Infraestrutura & Resiliência (Isolada dos Workflows de Projeto) */}
+        <div className="px-3 pt-3 mt-2 border-t border-beige-300 dark:border-denim-800 space-y-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-espresso-500 dark:text-denim-400 px-2 py-1 font-mono">
+            Infraestrutura & Resiliência
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('self-improvement')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+              activeView === 'self-improvement'
+                ? 'bg-white dark:bg-denim-850 text-espresso-950 dark:text-denim-50 border border-gold-400 dark:border-gold-500 shadow-warm dark:shadow-denim font-bold'
+                : 'text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50 hover:bg-beige-200/70 dark:hover:bg-denim-900/80 border border-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className={activeView === 'self-improvement' ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-espresso-500 dark:text-denim-400'}>
+                <IconShieldAlert className="w-4 h-4" />
+              </span>
+              <span>Auto-Melhoria CloudShell</span>
+            </div>
+
+            {improvementsCount > 0 && (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700 font-bold">
+                {improvementsCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Bottom: Google Stitch Status & Settings */}
