@@ -1,6 +1,3 @@
-# src/App.jsx
-
-``jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // Modais e Componentes de Layout
@@ -369,6 +366,32 @@ const DEFAULT_SQUAD_CATALOG = [
 export default function App() {
   // Navegação Principal por Abas ('dashboard' | 'workflows' | 'grid' | 'pixel-forge' | 'self-improvement')
   const [activeView, setActiveView] = useState('dashboard');
+
+  // Sistema de Tema Diurno (Bege) / Noturno (Calça Jeans Escura)
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('hcs_theme') || 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('hcs_theme', theme);
+    } catch (e) {
+      console.warn('Falha ao sincronizar tema no localStorage:', e);
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   // Controle de Modais & Gavetas
   const [isNewWorkflowOpen, setIsNewWorkflowOpen] = useState(false);
@@ -942,7 +965,7 @@ export default function App() {
   const activeRun = selectedRunId ? workflowRuns[selectedRunId] : Object.values(workflowRuns)[0] || null;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-beige-100 text-espresso-950 font-sans select-none antialiased">
+    <div className="flex h-screen w-screen overflow-hidden bg-beige-100 dark:bg-denim-950 text-espresso-950 dark:text-denim-100 font-sans select-none antialiased transition-colors duration-150">
       {/* 1. Barra Lateral Fixa de Navegação */}
       <Sidebar
         activeView={activeView}
@@ -977,6 +1000,8 @@ export default function App() {
           unreadNotificationsCount={notifications.filter((n) => !n.acknowledged).length}
           onToggleNotifications={() => setIsNotificationsOpen(true)}
           onOpenNewWorkflow={() => setIsNewWorkflowOpen(true)}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
         />
 
         {/* 3. Renderização Dinâmica da Aba Selecionada */}
@@ -1112,6 +1137,8 @@ export default function App() {
         }}
         maxTokensBudget={maxTokensBudget}
         onChangeMaxTokensBudget={(val) => setMaxTokensBudget(val)}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       <NotificationsDrawer
@@ -1129,5 +1156,3 @@ export default function App() {
     </div>
   );
 }
-
-``

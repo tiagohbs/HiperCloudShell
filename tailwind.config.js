@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -27,6 +28,21 @@ export default {
           300: '#C7B4A3',
           200: '#E2D8CF',
         },
+        denim: {
+          50: '#EDF4FD',
+          100: '#D6E3F7',
+          200: '#ADC7F0',
+          300: '#7DA4E0',
+          400: '#5581CE',
+          500: '#3B64B5',
+          600: '#2E4F91',
+          700: '#223D72',
+          750: '#1D3461',
+          800: '#182B50',
+          850: '#132240',
+          900: '#0F1A30', // Calça Jean Escura (Mais azul que preto)
+          950: '#0B1324', // Indigo Raw Jeans profundo
+        },
         gold: {
           50: '#FDFBF2',
           100: '#FAF4DB',
@@ -45,6 +61,8 @@ export default {
         'gold-lg': '0 8px 24px 0 rgba(212, 168, 30, 0.45)',
         'warm': '0 4px 20px -2px rgba(30, 21, 15, 0.08)',
         'warm-lg': '0 10px 30px -4px rgba(30, 21, 15, 0.12)',
+        'denim': '0 4px 20px -2px rgba(11, 19, 36, 0.5)',
+        'denim-lg': '0 10px 30px -4px rgba(11, 19, 36, 0.7)',
       }
     },
   },

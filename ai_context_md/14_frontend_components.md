@@ -49,7 +49,26 @@ A interface foi reestruturada de forma modular, eliminando a tela única monolí
   - 3 variantes comparativas com zoom Nearest-Neighbor (`1x`, `2x`, `5x`).
   - Prancha PIL comparativa e simulador de bolsa de 16 slots com suíte de testes Playwright.
 
-- **`src/components/views/SelfImprovementView.jsx` (`activeView === 'self-improvement'`)**:
+- **`src/components/SelfImprovementView.jsx` (`activeView === 'self-improvement'`)**:
   - Sistema de auto-cura contínua com alternância de motor (`claude` / `antigravity` / `hybrid`).
   - Rastreamento de gargalos de latência (> 45s).
   - Terminal interativo CloudShell em Worktree isolada com Zero-Copy Junctions.
+
+---
+
+## 3. Sistema de Tema Diurno / Noturno (Bege Claro vs Calça Jeans Escura)
+
+- **Modo Diurno (`light`)**:
+  - **Fundo**: Bege linho/pergaminho (`bg-beige-100`, `bg-beige-50`).
+  - **Tipografia**: Café expresso escuro quase preto (`text-espresso-950`, `text-espresso-900`) garantindo alto contraste e leitura sem cansar a vista.
+  - **Botões de Ação**: Gradiente dourado brilhante (`from-gold-500 via-yellow-400 to-amber-500`) com sombra luminosa (`shadow-gold`).
+
+- **Modo Noturno (`dark`)**:
+  - **Fundo / Canvas**: Calça jeans escura índigo profundo (`bg-denim-950` #0B1324, `bg-denim-900` #0F1A30), intencionalmente puxado para o azul saturado em vez do preto acromático #000000.
+  - **Superfícies & Cartões**: Azul jeans lavado escuro (`bg-denim-850` #132240) com bordas de trama denim twill (`border-denim-700` #223D72, `border-denim-800` #182B50).
+  - **Tipografia**: Ice denim blue (`text-denim-50`, `text-denim-100`, `text-denim-200`).
+  - **Botões & Rebites**: Ouro metálico brilhante mantido em contraste perfeito, emulando os rebites de bronze e a costura dourada tradicional das calças jeans escuras.
+- **Alternador de Tema**:
+  - Botão com ícones animados `IconSun` / `IconMoon` no `Header.jsx`.
+  - Seletor dedicado com cartões visuais em `SettingsModal.jsx` (Aba *Tema & Visual*).
+  - Persistência imediata via `localStorage.getItem('hcs_theme')` e comutação instantânea via `<html class="dark">`.

@@ -6,13 +6,15 @@
   color-scheme: light;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #F9F6F0;
-  color: #1E150F;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
 }
@@ -22,7 +24,12 @@ html, body, #root {
   color: #140E0A;
 }
 
-/* Custom warm parchment scrollbar */
+.dark ::selection {
+  background: #D4A81E;
+  color: #0B1324;
+}
+
+/* Custom warm parchment scrollbar (Light / Diurno) */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -36,4 +43,16 @@ html, body, #root {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #BDB096;
+}
+
+/* Custom Dark Denim scrollbar (Dark / Noturno) */
+.dark ::-webkit-scrollbar-track {
+  background: #0F1A30;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #223D72;
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #2E4F91;
 }
