@@ -2,8 +2,11 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { TerminalManager } from './term.js';
 import { MaestroOrchestrator } from './orchestrator/maestro.js';
+import { BlackboardManager } from './orchestrator/blackboard.js';
+import { WorktreeManager } from './orchestrator/worktree-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,37 +15,88 @@ const repoRoot = path.resolve(__dirname, '..');
 let mainWindow = null;
 let termManager = null;
 let maestro = null;
+let blackboard = null;
+let worktreeManager = null;
 
-export function setupMaestroIpc(window, targetRepoRoot = repoRoot, cloudShellProvider = null, mirrorManager = null) {
-  termManager = new TerminalManager(window, cloudShellProvider);
+export function setupUltracodeIPC(window, projectRoot = repoRoot, llmAdapter = null) {
+  blackboard = new BlackboardManager(projectRoot);
+  worktreeManager = new WorktreeManager(projectRoot);
+  termManager = new TerminalManager(window);
   maestro = new MaestroOrchestrator({
-    repoRoot: targetRepoRoot,
+    repoRoot: projectRoot,
     terminalManager: termManager,
-    mirrorManager,
-    mainWindow: window
+    blackboard,
+    worktreeManager,
+    mainWindow: window,
+    llmAdapter
   });
 
-  // Dispara um plano completo em DAG vindo do Maestro Command Center (src/ask.jsx)
+  blackboard.on('workflow:update', (runSnapshot) => {
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('ultracode:workflow-update', runSnapshot);
+    }
+  });
+
+  // Handlers do modo Ultracode (Dynamic Workflows)
+  ipcMain.handle('ultracode:set-effort', (_event, effortLevel) => {
+    blackboard.sessionEffort = effortLevel; // 'high' | 'ultracode'
+    return { effort: blackboard.sessionEffort };
+  });
+
+  ipcMain.handle('ultracode:submit-prompt', async (_event, { prompt, options = {} }) => {
+    const detection = maestro.detectUltracodeTrigger(prompt, options);
+    if (!detection.shouldRunWorkflow) {
+      return { mode: 'single_turn', effort: detection.effort };
+    }
+    const runState = await maestro.prepareWorkflowRun(prompt, options);
+    return { mode: 'workflow', effort: detection.effort, run: runState };
+  });
+
+  ipcMain.handle('ultracode:approve-run', async (_event, { runId, editedScript, args }) => {
+    const run = blackboard.getRun(runId);
+    if (run && editedScript) {
+      run.script = editedScript;
+    }
+    maestro.executeWorkflowRun(runId, { args });
+    return { started: true, runId };
+  });
+
+  ipcMain.handle('ultracode:pause-run', (_event, runId) => {
+    maestro.pauseWorkflowRun(runId);
+    return { paused: true };
+  });
+
+  ipcMain.handle('ultracode:resume-run', (_event, runId) => {
+    maestro.resumeWorkflowRun(runId);
+    return { resumed: true };
+  });
+
+  ipcMain.handle('ultracode:save-workflow', (_event, { runId, name }) => {
+    return blackboard.saveWorkflowToDisk(runId, name);
+  });
+
+  // Handlers classicos do DAG & Grid de Terminais
   ipcMain.handle('maestro:run-dag', async (_event, dagTasks) => {
     return await maestro.executeDagPlan(dagTasks);
   });
 
-  // Permite ao usuario digitar manualmente em qualquer painel do Grid ou destravar prompts
   ipcMain.on('term:write', (_event, { paneId, text }) => {
     termManager.writeToPane(paneId, text);
   });
 
-  // Redimensionamento dinamico do xterm.js no Grid (1x1, 2x2, 3x2)
   ipcMain.on('term:resize', (_event, { paneId, cols, rows }) => {
     termManager.resizePane(paneId, cols, rows);
   });
 
-  // Botao de Kill/Reset manual por painel no cabecalho do Grid
   ipcMain.on('term:kill', (_event, { paneId }) => {
     termManager.killPane(paneId);
   });
 
-  return { termManager, maestro };
+  return { blackboard, worktreeManager, maestro, termManager };
+}
+
+export function setupMaestroIpc(window, targetRepoRoot = repoRoot) {
+  return setupUltracodeIPC(window, targetRepoRoot);
 }
 
 function createWindow() {
@@ -57,15 +111,13 @@ function createWindow() {
     }
   });
 
-  setupMaestroIpc(mainWindow, repoRoot);
+  setupUltracodeIPC(mainWindow, repoRoot);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
     const indexPath = path.join(repoRoot, 'dist', 'index.html');
-    mainWindow.loadFile(indexPath).catch(() => {
-      // Fallback enquanto a UI React não é compilada
-    });
+    mainWindow.loadFile(indexPath).catch(() => {});
   }
 
   mainWindow.on('closed', () => {

@@ -1,12 +1,19 @@
 // electron/orchestrator/blackboard.js
 import fs from 'node:fs';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
 
-export class BlackboardManager {
-  constructor(repoRoot, sessionId = `maestro-${Date.now()}`) {
+export class BlackboardManager extends EventEmitter {
+  constructor(repoRoot = process.cwd(), sessionId = `maestro-${Date.now()}`) {
+    super();
     this.repoRoot = repoRoot;
+    this.projectRoot = repoRoot;
     this.maestroDir = path.join(repoRoot, '.maestro');
     this.blackboardPath = path.join(this.maestroDir, 'blackboard.json');
+
+    // Suporte ao modo Ultracode (Dynamic Workflows)
+    this.sessionEffort = 'high'; // 'low' | 'medium' | 'high' | 'xhigh' | 'ultracode'
+    this.runs = new Map(); // runId -> RunState
 
     if (!fs.existsSync(this.maestroDir)) {
       fs.mkdirSync(this.maestroDir, { recursive: true });
@@ -32,6 +39,135 @@ export class BlackboardManager {
     this.persist();
   }
 
+  // ==========================================================================
+  // METODOS ULTRACODE / DYNAMIC WORKFLOWS
+  // ==========================================================================
+  createRun({ id, prompt, script, meta }) {
+    const runState = {
+      id,
+      prompt,
+      script,
+      meta: meta || { name: 'dynamic-workflow', description: prompt, phases: [] },
+      status: 'pending_approval', // 'pending_approval' | 'running' | 'paused' | 'completed' | 'failed'
+      currentPhase: 'Initializing',
+      totalAgentsSpawned: 0,
+      activeAgentsCount: 0,
+      tokensUsed: 0,
+      startedAt: Date.now(),
+      finishedAt: null,
+      agents: [], // Lista ordenada por inicio para regra de cache A -> B -> C -> D
+      orderedCache: [], // Resultados salvos na execucao anterior
+      canUseCache: true, // Desativa assim que encontra o primeiro agente incompleto no replay
+      finalResult: null,
+      error: null
+    };
+    this.runs.set(id, runState);
+    this.emitUpdate(id);
+    return runState;
+  }
+
+  getRun(runId) {
+    return this.runs.get(runId);
+  }
+
+  // Regra oficial do Claude Code: replay segue a ordem de inicio (A -> B -> C -> D)
+  checkReplayCache(runId, callIndex, signature) {
+    const run = this.runs.get(runId);
+    if (!run || !run.canUseCache) return null;
+
+    const cached = run.orderedCache[callIndex];
+    if (cached && cached.completed && cached.signature === signature) {
+      return cached.result;
+    }
+
+    // Se este passo nao terminou ou mudou de assinatura, invalida o cache para os subsequentes
+    run.canUseCache = false;
+    run.orderedCache = run.orderedCache.slice(0, callIndex);
+    return null;
+  }
+
+  recordAgentStart(runId, agentInfo) {
+    const run = this.runs.get(runId);
+    if (!run) return;
+    run.totalAgentsSpawned += 1;
+    run.activeAgentsCount += 1;
+    run.agents.push({
+      ...agentInfo,
+      status: 'running',
+      startedAt: Date.now()
+    });
+    this.emitUpdate(runId);
+  }
+
+  recordAgentComplete(runId, callIndex, signature, result, tokens = 0) {
+    const run = this.runs.get(runId);
+    if (!run) return;
+    run.activeAgentsCount = Math.max(0, run.activeAgentsCount - 1);
+    run.tokensUsed += tokens;
+
+    const agentEntry = run.agents[callIndex];
+    if (agentEntry) {
+      agentEntry.status = 'completed';
+      agentEntry.finishedAt = Date.now();
+      agentEntry.resultPreview =
+        typeof result === 'string'
+          ? result.slice(0, 200)
+          : JSON.stringify(result).slice(0, 200);
+    }
+
+    run.orderedCache[callIndex] = {
+      signature,
+      completed: true,
+      result
+    };
+    this.emitUpdate(runId);
+  }
+
+  recordAgentFailure(runId, callIndex, error) {
+    const run = this.runs.get(runId);
+    if (!run) return;
+    run.activeAgentsCount = Math.max(0, run.activeAgentsCount - 1);
+    const agentEntry = run.agents[callIndex];
+    if (agentEntry) {
+      agentEntry.status = 'failed';
+      agentEntry.error = error?.message || String(error);
+    }
+    this.emitUpdate(runId);
+  }
+
+  setPhase(runId, phaseTitle) {
+    const run = this.runs.get(runId);
+    if (!run) return;
+    run.currentPhase = phaseTitle;
+    this.emitUpdate(runId);
+  }
+
+  saveWorkflowToDisk(runId, customName) {
+    const run = this.runs.get(runId);
+    if (!run) throw new Error(`Run ${runId} nao encontrada.`);
+
+    const slug = (customName || run.meta?.name || 'workflow')
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, '-');
+
+    const workflowsDir = path.join(this.projectRoot, '.claude', 'workflows');
+    fs.mkdirSync(workflowsDir, { recursive: true });
+
+    const filePath = path.join(workflowsDir, `${slug}.js`);
+    fs.writeFileSync(filePath, run.script, 'utf8');
+    return { command: `/${slug}`, filePath };
+  }
+
+  emitUpdate(runId) {
+    const run = this.runs.get(runId);
+    if (run) {
+      this.emit('workflow:update', { ...run, orderedCache: undefined });
+    }
+  }
+
+  // ==========================================================================
+  // METODOS CLSSICOS DO DAG DO MAESTRO
+  // ==========================================================================
   registerTasks(dagTasks) {
     for (const task of dagTasks) {
       this.state.tasks[task.id] = {
@@ -151,3 +287,6 @@ export class BlackboardManager {
     return structuredClone(this.state);
   }
 }
+
+// Alias para compatibilidade com a interface Ultracode
+export const Blackboard = BlackboardManager;

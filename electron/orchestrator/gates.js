@@ -2,6 +2,101 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+
+export class ConcurrencySemaphore {
+  constructor(maxConcurrent = 4) {
+    this.maxConcurrent = maxConcurrent;
+    this.current = 0;
+    this.queue = [];
+  }
+
+  async acquire() {
+    if (this.current < this.maxConcurrent) {
+      this.current += 1;
+      return;
+    }
+    await new Promise((resolve) => this.queue.push(resolve));
+    this.current += 1;
+  }
+
+  release() {
+    this.current = Math.max(0, this.current - 1);
+    if (this.queue.length > 0) {
+      const next = this.queue.shift();
+      next();
+    }
+  }
+}
+
+export class UltracodeGates {
+  static getRuntimeLimits() {
+    const cpus = os.cpus() || [];
+    const cpuScaledCap = Math.min(16, Math.max(2, cpus.length * 2));
+    const envConcurrent = Number(process.env.CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS);
+    return {
+      maxConcurrentAgents:
+        Number.isFinite(envConcurrent) && envConcurrent > 0
+          ? Math.min(envConcurrent, 16)
+          : cpuScaledCap,
+      maxTotalAgentsPerRun: 1000,
+      workflowsDisabled: process.env.CLAUDE_CODE_DISABLE_WORKFLOWS === '1'
+    };
+  }
+
+  static enforceAgentCap(totalSpawned, maxTotal = 1000) {
+    if (totalSpawned >= maxTotal) {
+      throw new Error(
+        `Ultracode Gate: Limite maximo de ${maxTotal} subagentes por execucao atingido (trava anti-loop).`
+      );
+    }
+  }
+
+  // Validador deterministico para a opcao { schema } do agent()
+  static validateSchema(data, schema) {
+    if (!schema) return { valid: true, value: data };
+
+    let parsed = data;
+    if (typeof data === 'string') {
+      try {
+        const jsonMatch = data.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, data];
+        parsed = JSON.parse(jsonMatch[1].trim());
+      } catch (err) {
+        return { valid: false, error: `Saida nao e um JSON valido: ${err.message}` };
+      }
+    }
+
+    if (schema.type === 'object') {
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return { valid: false, error: 'Esperado um objeto JSON.' };
+      }
+      if (Array.isArray(schema.required)) {
+        for (const reqField of schema.required) {
+          if (!(reqField in parsed) || parsed[reqField] === undefined) {
+            return { valid: false, error: `Campo obrigatorio ausente: "${reqField}".` };
+          }
+        }
+      }
+      if (schema.properties) {
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+          if (key in parsed && parsed[key] !== null) {
+            const actualType = Array.isArray(parsed[key]) ? 'array' : typeof parsed[key];
+            if (propSchema.type && actualType !== propSchema.type) {
+              return {
+                valid: false,
+                error: `Campo "${key}" esperava tipo "${propSchema.type}", mas recebeu "${actualType}".`
+              };
+            }
+          }
+        }
+      }
+    } else if (schema.type === 'array' && !Array.isArray(parsed)) {
+      return { valid: false, error: 'Esperado um array JSON.' };
+    }
+
+    return { valid: true, value: parsed };
+  }
+}
 
 export class QualityGateRunner {
   constructor({ terminalManager, blackboard, maxRetries = 3 }) {
@@ -61,7 +156,7 @@ export class QualityGateRunner {
 
         // Verifica se atingiu o limite do Circuit Breaker
         if (attempt >= this.maxRetries) {
-          this.terminalManager.killPane(paneId);
+          this.terminalManager?.killPane(paneId);
           this.blackboard.updateTask(task.id, {
             status: 'BLOCKED',
             summary: `Circuit Breaker acionado apos ${attempt} falhas no Gate.`
@@ -102,10 +197,12 @@ export class QualityGateRunner {
           ``
         ].join('\n');
 
-        this.terminalManager.writeToPane(paneId, `${healInstruction}\r`);
+        this.terminalManager?.writeToPane(paneId, `${healInstruction}\r`);
 
         // Aguarda o agente terminar o ciclo de correcao antes de re-executar o Gate
-        await this.terminalManager.waitForTurnCompletion(paneId, 240000);
+        if (typeof this.terminalManager?.waitForTurnCompletion === 'function') {
+          await this.terminalManager.waitForTurnCompletion(paneId, 240000);
+        }
       }
     }
   }

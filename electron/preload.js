@@ -1,7 +1,25 @@
 // electron/preload.js
 import { contextBridge, ipcRenderer } from 'electron';
 
-const api = {
+// API Oficial do Modo Ultracode & Dynamic Workflows
+const ultracodeAPI = {
+  setEffort: (effort) => ipcRenderer.invoke('ultracode:set-effort', effort),
+  submitPrompt: (prompt, options) =>
+    ipcRenderer.invoke('ultracode:submit-prompt', { prompt, options }),
+  approveRun: (runId, editedScript, args) =>
+    ipcRenderer.invoke('ultracode:approve-run', { runId, editedScript, args }),
+  pauseRun: (runId) => ipcRenderer.invoke('ultracode:pause-run', runId),
+  resumeRun: (runId) => ipcRenderer.invoke('ultracode:resume-run', runId),
+  saveWorkflow: (runId, name) => ipcRenderer.invoke('ultracode:save-workflow', { runId, name }),
+  onWorkflowUpdate: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('ultracode:workflow-update', handler);
+    return () => ipcRenderer.removeListener('ultracode:workflow-update', handler);
+  }
+};
+
+// API do Orquestrador Clássico Maestro DAG e Terminais
+const maestroAPI = {
   // DAG Execution
   runDag: (dagTasks) => ipcRenderer.invoke('maestro:run-dag', dagTasks),
 
@@ -43,5 +61,6 @@ const api = {
   }
 };
 
-contextBridge.exposeInMainWorld('maestroAPI', api);
-contextBridge.exposeInMainWorld('hiperAPI', api);
+contextBridge.exposeInMainWorld('ultracodeAPI', ultracodeAPI);
+contextBridge.exposeInMainWorld('maestroAPI', maestroAPI);
+contextBridge.exposeInMainWorld('hiperAPI', { ...maestroAPI, ...ultracodeAPI });

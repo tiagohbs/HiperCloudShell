@@ -1,12 +1,15 @@
 // electron/orchestrator/worktree-manager.js
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import fs from 'node:fs';
 
+const execFileAsync = promisify(execFile);
+
 export class WorktreeManager {
-  constructor(repoRoot) {
+  constructor(repoRoot = process.cwd()) {
     this.repoRoot = repoRoot;
-    this.worktreesDir = path.join(repoRoot, '.worktrees');
+    this.worktreesDir = path.join(this.repoRoot, '.worktrees');
     this.ensureWorktreesDirectory();
   }
 
@@ -30,6 +33,63 @@ export class WorktreeManager {
     }
   }
 
+  // ==========================================================================
+  // METODOS ULTRACODE WORKFLOWS
+  // ==========================================================================
+  async createIsolatedWorktree(agentId, baseBranch = 'HEAD') {
+    fs.mkdirSync(this.worktreesDir, { recursive: true });
+    const sanitizedId = agentId.replace(/[^a-zA-Z0-9_-]/g, '-');
+    const branchName = `ultracode/${sanitizedId}-${Date.now()}`;
+    const worktreePath = path.join(this.worktreesDir, sanitizedId);
+
+    if (fs.existsSync(worktreePath)) {
+      await this.removeWorktree(worktreePath, branchName).catch(() => {});
+    }
+
+    await execFileAsync('git', [
+      'worktree',
+      'add',
+      '-b',
+      branchName,
+      worktreePath,
+      baseBranch
+    ], { cwd: this.repoRoot });
+
+    return { worktreePath, branchName };
+  }
+
+  async getWorktreeDiff(worktreePath) {
+    const { stdout } = await execFileAsync('git', ['status', '--porcelain'], {
+      cwd: worktreePath
+    }).catch(() => ({ stdout: '' }));
+    return (stdout || '').trim();
+  }
+
+  async removeWorktree(worktreePath, branchName, deleteBranch = false) {
+    await execFileAsync('git', ['worktree', 'remove', '--force', worktreePath], {
+      cwd: this.repoRoot
+    }).catch(() => {});
+
+    try {
+      await execFileAsync('git', ['worktree', 'prune'], { cwd: this.repoRoot });
+    } catch (_) {}
+
+    if (fs.existsSync(worktreePath)) {
+      try {
+        fs.rmSync(worktreePath, { recursive: true, force: true });
+      } catch (_) {}
+    }
+
+    if (deleteBranch && branchName) {
+      await execFileAsync('git', ['branch', '-D', branchName], {
+        cwd: this.repoRoot
+      }).catch(() => {});
+    }
+  }
+
+  // ==========================================================================
+  // METODOS CLASSICOS DO MAESTRO DAG
+  // ==========================================================================
   /**
    * Analisa o historico recente do Git (Co-Change) para detectar acoplamento oculto
    * entre duas listas de arquivos antes de permitir paralelismo no DAG.
@@ -44,7 +104,6 @@ export class WorktreeManager {
         continue;
       }
       try {
-        // Lista arquivos que mudaram junto com fileA nos ultimos 15 commits
         const logOut = execFileSync(
           'git',
           ['log', '-n', '15', '--name-only', '--pretty=format:', '--', fileA],
@@ -103,8 +162,7 @@ export class WorktreeManager {
   /**
    * Realiza o commit das alteracoes validadas pelo Gate dentro do worktree
    */
-  commitWorktreeChanges(worktreePath, taskId, summary) {
-    // Remove o pacote temporario de contexto antes de commitar
+  commitWorktreeChanges(worktreePath, summaryOrMessage = 'automated changes') {
     const localMaestroDir = path.join(worktreePath, '.maestro');
     if (fs.existsSync(localMaestroDir)) {
       fs.rmSync(localMaestroDir, { recursive: true, force: true });
@@ -123,7 +181,11 @@ export class WorktreeManager {
       .map((line) => line.slice(3).trim())
       .filter(Boolean);
 
-    execFileSync('git', ['commit', '-m', `feat(maestro:${taskId}): ${summary}`], {
+    const message = summaryOrMessage.startsWith('feat(') || summaryOrMessage.startsWith('ultracode(')
+      ? summaryOrMessage
+      : `feat(maestro): ${summaryOrMessage}`;
+
+    execFileSync('git', ['commit', '-m', message], {
       cwd: worktreePath,
       stdio: 'pipe'
     });
@@ -133,15 +195,24 @@ export class WorktreeManager {
 
   /**
    * Faz o merge da branch do worktree de volta para a branch principal do projeto
+   * com protecao automatica (abort na presenca de conflitos)
    */
   mergeWorktreeToBase(taskId) {
     const safeId = taskId.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
     const branchName = `maestro/${safeId}`;
 
-    execFileSync('git', ['merge', '--no-ff', branchName, '-m', `merge(maestro): integra tarefa ${taskId}`], {
-      cwd: this.repoRoot,
-      stdio: 'pipe'
-    });
+    try {
+      execFileSync(
+        'git',
+        ['merge', '--no-ff', branchName, '-m', `merge(maestro): integra tarefa ${taskId}`],
+        { cwd: this.repoRoot, stdio: 'pipe' }
+      );
+    } catch (err) {
+      try {
+        execFileSync('git', ['merge', '--abort'], { cwd: this.repoRoot, stdio: 'pipe' });
+      } catch (_) {}
+      throw new Error(`Conflito ao integrar worktree da tarefa ${taskId}. Merge abortado para preservar branch base.`);
+    }
   }
 
   /**
@@ -158,12 +229,8 @@ export class WorktreeManager {
         stdio: 'pipe'
       });
     } catch (_) {
-      // Fallback para Windows caso handles pendentes impeçam a remoção direta
       try {
-        execFileSync('git', ['worktree', 'prune'], {
-          cwd: this.repoRoot,
-          stdio: 'pipe'
-        });
+        execFileSync('git', ['worktree', 'prune'], { cwd: this.repoRoot, stdio: 'pipe' });
       } catch (_) {}
     }
 
