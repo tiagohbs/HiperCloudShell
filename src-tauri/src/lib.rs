@@ -21,16 +21,23 @@ pub fn run() {
     // Inicializa pastas e templates canônicos
     let _ = squads::seed_default_templates(&project_root);
 
+    let worktree_mgr = WorktreeManager::new(project_root.clone(), 3)
+        .expect("Falha ao inicializar WorktreeManager");
+    let blackboard = BlackboardState::new(project_root.clone(), 500_000)
+        .expect("Falha ao inicializar BlackboardState");
+
     let app_state = AppState {
         project_root: project_root.clone(),
         pty_manager: Arc::new(PtyManager::new()),
-        blackboard: Arc::new(Mutex::new(BlackboardState::new(&project_root))),
-        worktree_manager: Arc::new(WorktreeManager::new(project_root.clone())),
+        blackboard: blackboard.clone(),
+        worktree_manager: worktree_mgr.clone(),
         dual_engine: Arc::new(DualEngineAdapter::new()),
         current_provider: Arc::new(Mutex::new("hybrid".to_string())),
     };
 
     tauri::Builder::default()
+        .manage(worktree_mgr)
+        .manage(blackboard)
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::ultracode_set_provider,
@@ -50,6 +57,10 @@ pub fn run() {
             commands::term_write,
             commands::term_resize,
             commands::term_kill,
+            commands::acquire_fast_worktree,
+            commands::release_fast_worktree,
+            commands::verify_merkle_replay,
+            commands::commit_merkle_replay,
         ])
         .run(tauri::generate_context!())
         .expect("Erro ao iniciar aplicação Tauri v2 HiperCloudShell");

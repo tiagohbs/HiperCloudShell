@@ -336,7 +336,7 @@ return await secSpecialist("Verificar integridade de entrada");
   // ==========================================================================
   // 8. BUILTIN SQUAD TEMPLATES CATALOG & DISK SEEDING
   // ==========================================================================
-  test('BlackboardManager seeds 7 Builtin Squad Templates to .claude/workflows and returns catalog', () => {
+  test('BlackboardManager seeds 8 Builtin Squad Templates to .claude/workflows and returns catalog', () => {
     const bb = new BlackboardManager(tmpRepo);
     const seeded = bb.seedDefaultTemplates();
 
@@ -347,7 +347,8 @@ return await secSpecialist("Verificar integridade de entrada");
       'squad-frontend-cinema',
       'squad-backend-fortress',
       'squad-3d-shader-studio',
-      'squad-cybersec-purple-team'
+      'squad-cybersec-purple-team',
+      'squad-pixel-forge-3d'
     ];
 
     for (const slug of expectedSquads) {
@@ -359,12 +360,18 @@ return await secSpecialist("Verificar integridade de entrada");
     }
 
     const catalog = bb.getSquadCatalog();
-    assert.equal(catalog.length, 7);
+    assert.equal(catalog.length, 8);
     const mutationSquad = catalog.find((s) => s.slug === 'qa-mutation-hunter');
     assert.ok(mutationSquad);
     assert.equal(mutationSquad.command, '/qa-mutation-hunter');
     assert.equal(mutationSquad.recommendedEffort.claude, 'high');
     assert.equal(mutationSquad.recommendedEffort.antigravity, 'medium');
+
+    const pixelForgeSquad = catalog.find((s) => s.slug === 'squad-pixel-forge-3d');
+    assert.ok(pixelForgeSquad);
+    assert.equal(pixelForgeSquad.command, '/squad-pixel-forge-3d');
+    assert.equal(pixelForgeSquad.recommendedEffort.claude, 'high');
+    assert.equal(pixelForgeSquad.recommendedEffort.antigravity, 'medium');
 
     const cinemaSquad = catalog.find((s) => s.slug === 'squad-frontend-cinema');
     assert.ok(cinemaSquad);

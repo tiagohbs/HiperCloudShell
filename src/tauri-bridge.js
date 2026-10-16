@@ -91,7 +91,17 @@ export function initTauriBridge() {
     runDag: (dagTasks) => invoke('maestro_run_dag', { dagTasks }),
     paneWrite: (paneId, text) => invoke('term_write', { paneId, text }),
     paneResize: (paneId, cols, rows) => invoke('term_resize', { paneId, cols, rows }),
-    paneKill: (paneId) => invoke('term_kill', { paneId })
+    paneKill: (paneId) => invoke('term_kill', { paneId }),
+
+    // Fast Worktrees & Merkle DAG Replay
+    acquireFastWorktree: (taskId, baseRef) =>
+      invoke('acquire_fast_worktree', { taskId, baseRef: baseRef || null }),
+    releaseFastWorktree: (taskId, deleteBranch = true) =>
+      invoke('release_fast_worktree', { taskId, deleteBranch: Boolean(deleteBranch) }),
+    verifyMerkleReplay: (query) =>
+      invoke('verify_merkle_replay', { query }),
+    commitMerkleReplay: (entry) =>
+      invoke('commit_merkle_replay', { entry })
   };
 
   window.ultracodeAPI = bridge;

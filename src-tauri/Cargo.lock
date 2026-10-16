@@ -1256,10 +1256,12 @@ name = "hipercloudshell"
 version = "0.2.0"
 dependencies = [
  "chrono",
+ "hex",
  "portable-pty",
  "regex",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-shell",

@@ -855,6 +855,107 @@ return {
   securityPatches: patches
 };
 `.trim()
+  },
+
+  // ============================================================================
+  // 8. 3D & GAME ASSETS: PIXEL FORGE 3D -> PIXEL ART (CAPYBOUND PIPELINE)
+  // ============================================================================
+  'squad-pixel-forge-3d': {
+    category: '3D & Game Assets',
+    title: '🎨 Pixel Forge 3D -> Pixel Art',
+    recommendedEffort: { claude: 'high', antigravity: 'medium' },
+    description:
+      'Modela itens 3D procedurais no Blender headless (bpy/bmesh) separados por índice de peça/objeto, renderiza mapas EXR multicamadas, aplica perfis de iluminação/paleta via pintor.py, gera prancha comparativa com 3 variantes numeradas e instala no jogo com verificação visual na bolsa via Playwright.',
+    script: `
+const meta = {
+  name: "squad-pixel-forge-3d",
+  description: "Pipeline Blender Headless (bpy/bmesh) -> EXR Multicamadas -> Pintor Palette -> 3 Variantes Paralelas -> Verificação Playwright na Bolsa",
+  phases: [
+    { title: "Modelagem 3D & Perfil de Paleta", detail: "Claude constrói script bpy e perfis/<item>.json com opções CLI" },
+    { title: "Renderização Paralela das 3 Variantes", detail: "Maestro executa parallel() gerando 3 variantes EXR e Pixel Art em 512px" },
+    { title: "Prancha Comparativa & Aprovação", detail: "Gera folha comparativa lado a lado (3D + Pixel Art 2x + 1x) para escolha humana" },
+    { title: "Export 1024px & Validação Playwright", detail: "Render final, export 5x Nearest, receita no lote e print da bolsa do jogo" }
+  ]
+};
+
+const bmeshArchitect = harness({
+  role: "Modelador 3D Procedural Blender (bpy/bmesh) & Designer de Paletas Pixel Art",
+  provider: "claude",
+  effort: "high",
+  skills: ["bmesh-procedural-modeling", "material-index-segmentation", "color-ramp-design"]
+});
+
+const variantRunner = harness({
+  role: "Operador de Renderização EXR Multicamadas, PIL Sheet Composer & Playwright QA",
+  provider: "antigravity",
+  effort: "medium",
+  skills: ["exr-multichannel-render", "pil-sheet-composition", "playwright-bag-qa"]
+});
+
+phase("Modelagem 3D & Perfil de Paleta");
+const designSpec = await agent(
+  \`Construa o script 3D procedural em "tools/icones/\${args.itemId || "espada_bambu"}.py" e o perfil em "tools/icones/perfis/\${args.itemId || "espada_bambu"}.json". Estilo: \${args.styleBrief || "pixel art 16-bit com sombra fria, luz quente e contorno tingido"}. Separe cada cor em material próprio M[i], use objetos separados para tiras/adornos e exponha opções CLI via op(). Converta escalares numpy com float().\`,
+  {
+    label: "design-3d-and-profile",
+    schema: {
+      type: "object",
+      properties: {
+        scriptPath: { type: "string" },
+        profilePath: { type: "string" },
+        variantsArgs: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } }
+      },
+      required: ["scriptPath", "profilePath", "variantsArgs"]
+    }
+  }
+);
+
+phase("Renderização Paralela das 3 Variantes");
+const variants = await parallel(
+  (designSpec.variantsArgs || ["--opcao=1", "--opcao=2", "--opcao=3"]).map((cliArgs, idx) => async () => {
+    const vNum = idx + 1;
+    const exrOut = \`/tmp/\${args.itemId || "item"}_v\${vNum}.exr\`;
+    const pngOut = \`/tmp/\${args.itemId || "item"}_v\${vNum}_px.png\`;
+    await verifyCmd(\`blend/bin/python -I \${designSpec.scriptPath} -- \${exrOut} 512 \${cliArgs}\`);
+    if (!args.threeDOnlyMode) {
+      await verifyCmd(\`blend/bin/python -I tools/icones/pintor.py \${exrOut} \${pngOut} \${args.iconHeightPx || 112} \${designSpec.profilePath}\`);
+    }
+    return { variant: vNum, cliArgs, exrOut, pngOut };
+  })
+);
+
+phase("Prancha Comparativa & Aprovação");
+const comparisonSheet = await agent(
+  \`Monte a prancha comparativa "/tmp/\${args.itemId || "item"}_comparacao_1_2_3.png" com PIL colocando lado a lado as 3 variantes: \${JSON.stringify(variants)} (3D pequeno + pixel art 2x + 1x). Informe o que mudou, como testar e o que não foi testado.\`,
+  { label: "compose-comparison-sheet" }
+);
+
+if (!args.approvedVariantIndex) {
+  return {
+    status: "AWAITING_USER_EYE_APPROVAL",
+    message: "Prancha com 3 variantes gerada! Escolha 1, 2 ou 3.",
+    comparisonSheet,
+    variants
+  };
+}
+
+phase("Export 1024px & Validação Playwright");
+const chosenArgs = designSpec.variantsArgs[args.approvedVariantIndex - 1];
+const finalExr = \`/tmp/\${args.itemId || "item"}_final_1024.exr\`;
+const finalPng = \`/tmp/\${args.itemId || "item"}_final.png\`;
+await verifyCmd(\`blend/bin/python -I \${designSpec.scriptPath} -- \${finalExr} 1024 \${chosenArgs}\`);
+await verifyCmd(\`blend/bin/python -I tools/icones/pintor.py \${finalExr} \${finalPng} \${args.iconHeightPx || 112} \${designSpec.profilePath}\`);
+
+const finalInstall = await agent(
+  \`Variante \${args.approvedVariantIndex} aprovada (\${chosenArgs}). Grave em tools/icones/receitas/\${args.lote || "lote"}.json, instale com python3 -I tools/add_icone.py item \${args.itemId || "item"} \${finalPng} --nativo, rode build e valide a bolsa com Playwright na porta 8765.\`,
+  { label: "install-and-bag-qa" }
+);
+
+return {
+  status: "INSTALLED_AND_VERIFIED_IN_BAG",
+  chosenVariant: args.approvedVariantIndex,
+  finalInstall
+};
+`.trim()
   }
 };
 

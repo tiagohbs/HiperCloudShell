@@ -1,23 +1,31 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-use crate::blackboard::SharedBlackboard;
+use crate::blackboard::{BlackboardState, MerkleCacheEntry, MerkleQueryInput};
 use crate::dual_engine::DualEngineAdapter;
 use crate::pty_manager::PtyManager;
 use crate::squads::{self, SquadTemplate};
-use crate::worktree::WorktreeManager;
+use crate::worktree::{WorktreeLease, WorktreeManager};
 
 pub struct AppState {
     pub project_root: PathBuf,
     pub pty_manager: Arc<PtyManager>,
-    pub blackboard: SharedBlackboard,
-    pub worktree_manager: Arc<WorktreeManager>,
+    pub blackboard: BlackboardState,
+    pub worktree_manager: WorktreeManager,
     pub dual_engine: Arc<DualEngineAdapter>,
     pub current_provider: Arc<Mutex<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+pub struct MerkleLookupResponse {
+    pub merkle_key: String,
+    pub cache_hit: bool,
+    pub entry: Option<MerkleCacheEntry>,
 }
 
 #[tauri::command]
@@ -38,6 +46,7 @@ pub fn ultracode_set_token_budget(
     if let Some(run) = bb.get_run_mut(&run_id) {
         run.max_tokens_per_run = max_tokens_per_run;
         let run_clone = run.clone();
+        let _ = state.blackboard.persist_atomic(&bb);
         drop(bb);
         let _ = app.emit("ultracode:workflow-update", &run_clone);
     }
@@ -48,7 +57,7 @@ pub fn ultracode_set_token_budget(
 pub fn ultracode_set_effort(effort_level: String, state: State<AppState>) -> Result<serde_json::Value, String> {
     let mut bb = state.blackboard.lock().map_err(|e| e.to_string())?;
     bb.session_effort = effort_level.clone();
-    bb.persist();
+    let _ = state.blackboard.persist_atomic(&bb);
     Ok(serde_json::json!({ "effort": effort_level }))
 }
 
@@ -89,6 +98,7 @@ pub fn ultracode_launch_squad(
 
     let run_state = bb.create_run(run_id, prompt_desc, squad.script, meta, 50000);
     let caps = bb.engine_effort_caps.clone();
+    let _ = state.blackboard.persist_atomic(&bb);
     drop(bb);
 
     let _ = app.emit("ultracode:workflow-update", &run_state);
@@ -210,7 +220,9 @@ pub async fn ultracode_submit_prompt(
 
     let run_state = {
         let mut bb = state.blackboard.lock().map_err(|e| e.to_string())?;
-        bb.create_run(run_id, prompt, generated_script, meta, 50000)
+        let rs = bb.create_run(run_id, prompt, generated_script, meta, 50000);
+        let _ = state.blackboard.persist_atomic(&bb);
+        rs
     };
 
     let _ = app.emit("ultracode:workflow-update", &run_state);
@@ -277,6 +289,7 @@ pub async fn ultracode_approve_run(
         let s = run.script.clone();
         let tb = run.max_tokens_per_run;
         let r_clone = run.clone();
+        let _ = state.blackboard.persist_atomic(&bb);
         drop(bb);
         let _ = app.emit("ultracode:workflow-update", &r_clone);
         (s, tb)
@@ -363,6 +376,7 @@ pub fn ultracode_pause_run(
         run.status = "paused".to_string();
         run.pause_reason = Some("Pausado pelo usuário".to_string());
         let run_clone = run.clone();
+        let _ = state.blackboard.persist_atomic(&bb);
         drop(bb);
         let _ = app.emit("ultracode:workflow-update", &run_clone);
     }
@@ -380,6 +394,7 @@ pub fn ultracode_resume_run(
         run.status = "running".to_string();
         run.pause_reason = None;
         let run_clone = run.clone();
+        let _ = state.blackboard.persist_atomic(&bb);
         drop(bb);
         let _ = app.emit("ultracode:workflow-update", &run_clone);
     }
@@ -489,4 +504,47 @@ pub async fn maestro_run_dag(
         "status": "DAG_SCHEDULED",
         "tasksCount": dag_tasks.len()
     }))
+}
+
+#[tauri::command]
+pub async fn acquire_fast_worktree(
+    worktree_mgr: State<'_, WorktreeManager>,
+    task_id: String,
+    base_ref: Option<String>,
+) -> Result<WorktreeLease, String> {
+    let base = base_ref.unwrap_or_else(|| "HEAD".to_string());
+    let lease = worktree_mgr.acquire_worktree(&task_id, &base)?;
+    // Reabastece 1 slot em background para manter o pool sempre quente
+    let _ = worktree_mgr.replenish_warm_pool();
+    Ok(lease)
+}
+
+#[tauri::command]
+pub async fn release_fast_worktree(
+    worktree_mgr: State<'_, WorktreeManager>,
+    task_id: String,
+    delete_branch: bool,
+) -> Result<(), String> {
+    worktree_mgr.release_worktree(&task_id, delete_branch)
+}
+
+#[tauri::command]
+pub async fn verify_merkle_replay(
+    blackboard: State<'_, BlackboardState>,
+    query: MerkleQueryInput,
+) -> Result<MerkleLookupResponse, String> {
+    let (merkle_key, entry) = blackboard.lookup_merkle_cache(&query)?;
+    Ok(MerkleLookupResponse {
+        merkle_key,
+        cache_hit: entry.is_some(),
+        entry,
+    })
+}
+
+#[tauri::command]
+pub async fn commit_merkle_replay(
+    blackboard: State<'_, BlackboardState>,
+    entry: MerkleCacheEntry,
+) -> Result<(), String> {
+    blackboard.commit_merkle_entry(entry)
 }
