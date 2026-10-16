@@ -167,7 +167,12 @@ export function initTauriBridge() {
         engineOverride: engineOverride || null,
         targetFiles: targetFiles || null
       }),
-    inspectCloudShell: (termId) => safeInvoke('ultracode_cloudshell_inspect', { termId })
+    inspectCloudShell: (termId) => safeInvoke('ultracode_cloudshell_inspect', { termId }),
+
+    // Gestão de Projetos & GitHub
+    getProjectContext: () => safeInvoke('ultracode_get_project_context'),
+    gitSync: (action = 'status') => safeInvoke('ultracode_git_sync', { action }),
+    githubListRepos: () => safeInvoke('ultracode_github_list_repos')
   };
 
   window.ultracodeAPI = bridge;

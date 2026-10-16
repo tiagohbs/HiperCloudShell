@@ -10,10 +10,19 @@ export default function NewWorkflowModal({
   onCustomWorkflow,
   defaultProvider = 'hybrid',
   defaultEffort = 'ultracode',
-  defaultBudget = 50000
+  defaultBudget = 50000,
+  initialPrompt = ''
 }) {
   const [step, setStep] = useState(1); // 1: Intenção/Squad, 2: Motor/Orçamento, 3: Revisão
-  const [prompt, setPrompt] = useState('ultracode: auditar rotas e executar verificações em worktree');
+  const [prompt, setPrompt] = useState(
+    initialPrompt || 'ultracode: auditar rotas e executar verificações em worktree'
+  );
+
+  React.useEffect(() => {
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+    }
+  }, [initialPrompt]);
   const [selectedSquad, setSelectedSquad] = useState(null);
   const [provider, setProvider] = useState(defaultProvider);
   const [effort, setEffort] = useState(defaultEffort);

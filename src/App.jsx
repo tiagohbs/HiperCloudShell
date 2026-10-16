@@ -10,6 +10,7 @@ import NotificationsDrawer from './components/NotificationsDrawer.jsx';
 
 // Vistas Modulares (Abas de Navegação)
 import DashboardView from './components/views/DashboardView.jsx';
+import ProjectsView from './components/views/ProjectsView.jsx';
 import WorkflowsView from './components/views/WorkflowsView.jsx';
 import TerminalGridView from './components/views/TerminalGridView.jsx';
 import PixelForgeView from './components/views/PixelForgeView.jsx';
@@ -466,6 +467,55 @@ export default function App() {
     }
   });
 
+  // Projeto Ativo em Foco no Ecossistema com Persistência
+  const [activeProject, setActiveProject] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hcs_active_project');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: 'HiperCloudShell',
+      path: 'C:\\Users\\DEV\\Documents\\HiperCloudShell',
+      branch: 'main',
+      remoteUrl: 'https://github.com/tiagohbs/HiperCloudShell.git',
+      isGit: true
+    };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hcs_active_project', JSON.stringify(activeProject));
+    } catch (e) {
+      console.warn('Falha ao persistir activeProject:', e);
+    }
+  }, [activeProject]);
+
+  // Hook inicial para consultar o contexto real do projeto via Tauri IPC
+  useEffect(() => {
+    let isMounted = true;
+    if (window.ultracodeAPI?.getProjectContext) {
+      window.ultracodeAPI
+        .getProjectContext()
+        .then((ctx) => {
+          if (isMounted && ctx && ctx.branch) {
+            setActiveProject((prev) => ({
+              ...prev,
+              branch: ctx.branch || prev.branch,
+              remoteUrl: ctx.remoteUrl || prev.remoteUrl,
+              recentCommits: ctx.recentCommits || prev.recentCommits,
+              status: ctx.status || prev.status
+            }));
+          }
+        })
+        .catch((e) => console.log('[App] getProjectContext fallback web:', e));
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const [workflowInitialPrompt, setWorkflowInitialPrompt] = useState('');
+
   // Catálogo de Squads
   const [squadCatalog, setSquadCatalog] = useState(DEFAULT_SQUAD_CATALOG);
 
@@ -575,95 +625,73 @@ export default function App() {
     };
   });
 
-  // Notificações Rastreáveis
+  // Notificações Rastreáveis (Dicas de Uso e Alertas do Sistema)
   const [notifications, setNotifications] = useState([
     {
-      id: 'notif_init_1',
-      code: 'HCS-BTL-104',
-      kind: 'bottleneck',
-      severity: 'warning',
-      title: 'Gargalo de Sincronização em T2_BACKEND',
-      message: 'Execução de syncScopeToCloud levou 48.4s (limite: 45s) no painel pane-2.',
-      timestamp: Date.now() - 180000,
-      acknowledged: false,
-      source_trace: {
-        pane_id: 'pane-2',
-        term_id: 'pane-2',
-        agent_id: 'T2_BACKEND',
-        provider: 'claude',
-        worktree_path: '.worktrees/t2-backend',
-        file_target: 'electron/mirror.js'
-      },
-      improvement_id: 'imp_demo_1'
-    },
-    {
-      id: 'notif_init_2',
-      code: 'HCS-ERR-402',
-      kind: 'error',
-      severity: 'critical',
-      title: 'Falha de Validação de Schema no Subagente',
-      message: 'JSON truncado durante auditoria de rotas no worktree isolado.',
-      timestamp: Date.now() - 95000,
+      id: 'notif_welcome_1',
+      code: 'HCS-PRJ-101',
+      kind: 'info',
+      severity: 'info',
+      title: 'Central de Projetos Ativa',
+      message: 'O ecossistema está operando sobre o repositório HiperCloudShell (branch main). Todas as squads e worktrees agora têm escopo definido e seguro.',
+      timestamp: Date.now() - 120000,
       acknowledged: false,
       source_trace: {
         pane_id: 'pane-1',
         term_id: 'pane-1',
-        agent_id: 'T1_ARCHITECT',
-        provider: 'antigravity',
-        worktree_path: '.worktrees/t1-architect',
-        file_target: 'src/contracts/sync.schema.js'
+        agent_id: 'SYSTEM',
+        provider: 'hybrid',
+        worktree_path: '.',
+        file_target: 'src-tauri/src/commands.rs'
       },
       improvement_id: null
     },
     {
-      id: 'notif_init_3',
-      code: 'HCS-IMP-201',
+      id: 'notif_tip_2',
+      code: 'HCS-PRF-202',
       kind: 'improvement',
       severity: 'info',
-      title: 'Melhoria de Fluxo Pronta no CloudShell',
-      message: 'Batching assíncrono implementado em electron/mirror.js (-62% latência de I/O).',
-      timestamp: Date.now() - 30000,
+      title: 'Dica: Merkle Replay Cache & Economia de Tokens',
+      message: 'Ative o Merkle Replay para reaproveitar chamadas repetidas de subagentes e economizar até 80% do teto financeiro em DAGs longos.',
+      timestamp: Date.now() - 45000,
       acknowledged: false,
       source_trace: {
-        term_id: 'cs_imp_demo_1',
-        agent_id: 'imp_demo_1',
+        term_id: 'cs_imp_guide_1',
+        agent_id: 'imp_guide_1',
         provider: 'antigravity',
-        worktree_path: '.worktrees/imp-demo-1',
-        file_target: 'electron/mirror.js'
+        worktree_path: '.worktrees/imp-resilience',
+        file_target: 'src/tauri-bridge.js'
       },
-      improvement_id: 'imp_demo_1'
+      improvement_id: 'imp_guide_1'
     }
   ]);
 
   // Fila e Histórico de Auto-Melhoria
   const [improvements, setImprovements] = useState({
-    imp_demo_1: {
-      id: 'imp_demo_1',
-      source_notification_code: 'HCS-BTL-104',
-      category: 'bottleneck_opt',
+    imp_guide_1: {
+      id: 'imp_guide_1',
+      source_notification_code: 'HCS-PRF-202',
+      category: 'resilience_guide',
       status: 'ready_to_merge',
-      engine: 'antigravity',
-      cloudshell_term_id: 'cs_imp_demo_1',
-      worktree_path: '.worktrees/imp-demo-1',
-      branch_name: 'maestro/imp-demo-1',
-      target_files: ['electron/mirror.js', 'tests/mirror.spec.js'],
-      diagnosis: 'Detectado bloqueio síncrono de I/O na leitura de chunks do diretório antes do envio SSH.',
-      patch_summary: 'Substituído loop sequencial por pipeline em stream + Zero-Copy Junction check. Testes: 12/12 PASSED.',
+      engine: 'hybrid',
+      cloudshell_term_id: 'cs_imp_guide_1',
+      worktree_path: '.worktrees/imp-resilience',
+      branch_name: 'maestro/imp-resilience',
+      target_files: ['src/tauri-bridge.js', 'src-tauri/src/commands.rs'],
+      diagnosis: 'Zero-Copy Junctions e isolamento Git Worktrees validados para o projeto ativo.',
+      patch_summary: 'Sincronização bidirecional entre Tauri ConPTY e CloudShell ativa. Quality gates determinísticos prontos.',
       created_at: Date.now() - 120000,
       updated_at: Date.now() - 30000
     }
   });
 
-  const [selectedImprovementId, setSelectedImprovementId] = useState('imp_demo_1');
+  const [selectedImprovementId, setSelectedImprovementId] = useState('imp_guide_1');
   const [cloudShellLogs, setCloudShellLogs] = useState({
-    cs_imp_demo_1: [
-      '[CloudShell PTY] Sessão isolada iniciada em .worktrees/imp-demo-1 (Zero-Copy Junction ativa)',
-      '$ agy -p "/boost Otimizar gargalo HCS-BTL-104 em electron/mirror.js" --mode accept-edits --effort high',
-      '[Antigravity] Rastreando chamadas em electron/mirror.js...',
-      '[Antigravity] Patch aplicado: paralelização de hash SHA-256 por lote.',
-      '$ npm test -- tests/mirror.spec.js',
-      'PASS tests/mirror.spec.js (412ms -> 148ms)',
-      '<<MAESTRO_TASK_DONE>>'
+    cs_imp_guide_1: [
+      '[CloudShell PTY] Terminal de Auto-Melhoria e Resiliência Ativo.',
+      '[Dica de Uso] Quando um subagente exceder o threshold ou encontrar um gargalo, o sistema abrirá uma sessão aqui.',
+      '[Status] Zero-Copy Junctions preparadas em .worktrees/ para execução sem clonagem pesada.',
+      'Aguardando novos gatilhos de melhoria...'
     ]
   });
   const [cloudShellCommandInput, setCloudShellCommandInput] = useState('');
@@ -706,12 +734,24 @@ export default function App() {
     )
   }));
 
-  // Painéis do Terminal Grid
+  // Painéis do Terminal Grid (Placeholders de Ensino de Uso)
   const [paneLogs, setPaneLogs] = useState({
-    'pane-1': ['[HiperCloudShell PTY] Painel pane-1 pronto. Worktree: .worktrees/t1-architect'],
-    'pane-2': ['[CloudShell SSH Bridge] Painel pane-2 pronto. Worktree: .worktrees/t2-backend'],
-    'pane-3': ['[HiperCloudShell PTY] Painel pane-3 pronto. Worktree: .worktrees/t3-frontend'],
-    'pane-4': ['[CloudShell SSH Bridge] Painel pane-4 pronto. Worktree: .worktrees/t4-qa-gate']
+    'pane-1': [
+      '[HiperCloudShell ConPTY] Painel 1 pronto (T1_ARCHITECT).',
+      '[Placeholder de Ensino] Este painel executa o arquiteto do DAG para geração de contratos Zod e contratos de interface.'
+    ],
+    'pane-2': [
+      '[CloudShell SSH Bridge] Painel 2 pronto (T2_BACKEND).',
+      '[Placeholder de Ensino] Executa subagentes em worktree isolada (.worktrees/t2-backend) com Zero-Copy Junction.'
+    ],
+    'pane-3': [
+      '[HiperCloudShell ConPTY] Painel 3 pronto (T3_FRONTEND).',
+      '[Placeholder de Ensino] Responsável por componentes visuais React, Tailwind v4 e interface Apple HIG / Material 3.'
+    ],
+    'pane-4': [
+      '[CloudShell SSH Bridge] Painel 4 pronto (T4_QA_GATE).',
+      '[Placeholder de Ensino] Quality Gate determinístico. Executa suite de testes antes de autorizar o merge na main.'
+    ]
   });
 
   const [paneInputs, setPaneInputs] = useState({
@@ -841,6 +881,18 @@ export default function App() {
   const totalConsumedTokens = useMemo(() => {
     return Object.values(workflowRuns).reduce((acc, r) => acc + (r.tokensUsed || 0), 18420);
   }, [workflowRuns]);
+
+  const handleOpenNewWorkflowWithPrompt = (promptText = '') => {
+    setWorkflowInitialPrompt(promptText || '');
+    setIsNewWorkflowOpen(true);
+  };
+
+  const handleLaunchSquadWithTask = (squadSlug, taskTitle) => {
+    const squad = squadCatalog.find((s) => s.slug === squadSlug) || squadCatalog[0];
+    const fullPrompt = `ultracode: [Projeto: ${activeProject?.name || 'HiperCloudShell'}] ${squad?.command || '/squad'} - ${taskTitle}`;
+    handleSelectSquad(squad, fullPrompt, true);
+    setActiveView('workflows');
+  };
 
   // Handler: Lançar Squad selecionado no Assistente
   const handleSelectSquad = async (squad, customPrompt, runDirectly = false) => {
@@ -1142,10 +1194,11 @@ export default function App() {
       <Sidebar
         activeView={activeView}
         onNavigate={(viewId) => setActiveView(viewId)}
-        onOpenNewWorkflow={() => setIsNewWorkflowOpen(true)}
+        onOpenNewWorkflow={() => handleOpenNewWorkflowWithPrompt()}
         onOpenSettings={() => setIsSettingsOpen(true)}
         workflowRunsCount={Object.keys(workflowRuns).length}
         improvementsCount={Object.keys(improvements).length}
+        activeProjectName={activeProject?.name || 'HiperCloudShell'}
         provider={provider}
       />
 
@@ -1165,16 +1218,18 @@ export default function App() {
           onToggleUnlimitedTokens={handleToggleUnlimitedTokens}
           unreadNotificationsCount={notifications.filter((n) => !n.acknowledged).length}
           onToggleNotifications={() => setIsNotificationsOpen(true)}
-          onOpenNewWorkflow={() => setIsNewWorkflowOpen(true)}
+          onOpenNewWorkflow={() => handleOpenNewWorkflowWithPrompt()}
           theme={theme}
           onToggleTheme={handleToggleTheme}
+          activeProject={activeProject}
+          onNavigate={setActiveView}
         />
 
         {/* 3. Renderização Dinâmica da Aba Selecionada */}
         <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
           {activeView === 'dashboard' && (
             <DashboardView
-              onOpenNewWorkflow={() => setIsNewWorkflowOpen(true)}
+              onOpenNewWorkflow={() => handleOpenNewWorkflowWithPrompt()}
               onNavigate={(viewId) => setActiveView(viewId)}
               workflowRuns={workflowRuns}
               selectedRunId={selectedRunId}
@@ -1188,6 +1243,17 @@ export default function App() {
               squadCatalog={squadCatalog}
               improvements={improvements}
               notifications={notifications}
+              activeProject={activeProject}
+            />
+          )}
+
+          {activeView === 'projects' && (
+            <ProjectsView
+              activeProject={activeProject}
+              setActiveProject={setActiveProject}
+              onOpenNewWorkflow={handleOpenNewWorkflowWithPrompt}
+              onNavigate={setActiveView}
+              onLaunchSquadWithTask={handleLaunchSquadWithTask}
             />
           )}
 
@@ -1211,7 +1277,7 @@ export default function App() {
               setPtyInput={setPtyInput}
               onSendPtyInput={handleSendPtyInput}
               onTakeoverAgent={handleTakeoverAgent}
-              onOpenNewWorkflow={() => setIsNewWorkflowOpen(true)}
+              onOpenNewWorkflow={() => handleOpenNewWorkflowWithPrompt()}
               onOpenApprovalGate={handleOpenApprovalGate}
             />
           )}
@@ -1272,13 +1338,17 @@ export default function App() {
       {/* 4. Modais Centrais & Gavetas Flutuantes */}
       <NewWorkflowModal
         isOpen={isNewWorkflowOpen}
-        onClose={() => setIsNewWorkflowOpen(false)}
+        onClose={() => {
+          setIsNewWorkflowOpen(false);
+          setWorkflowInitialPrompt('');
+        }}
         squadCatalog={squadCatalog}
         onLaunchSquad={handleSelectSquad}
         onCustomWorkflow={handleCustomWorkflow}
         defaultProvider={provider}
         defaultEffort={effort}
         defaultBudget={unlimitedTokens ? 0 : maxTokensBudget}
+        initialPrompt={workflowInitialPrompt}
       />
 
       <ApprovalGateModal

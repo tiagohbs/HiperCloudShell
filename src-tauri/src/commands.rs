@@ -861,3 +861,136 @@ pub async fn ultracode_cloudshell_inspect(
 ) -> Result<serde_json::Value, String> {
     state.pty_manager.inspect_session(&term_id).await
 }
+
+#[tauri::command]
+pub async fn ultracode_get_project_context(
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let project_path = state.project_root.clone();
+    let name = project_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "HiperCloudShell".to_string());
+
+    // 1. Git branch
+    let branch_output = std::process::Command::new("git")
+        .args(["branch", "--show-current"])
+        .current_dir(&project_path)
+        .output();
+    let branch = branch_output
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "main".to_string());
+
+    // 2. Git remote URL
+    let remote_output = std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(&project_path)
+        .output();
+    let remote_url = remote_output
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+
+    // 3. Recent commits
+    let log_output = std::process::Command::new("git")
+        .args(["log", "-n", "5", "--pretty=format:%h|%s|%an|%ar"])
+        .current_dir(&project_path)
+        .output();
+    let mut commits = Vec::new();
+    if let Ok(o) = log_output {
+        if let Ok(text) = String::from_utf8(o.stdout) {
+            for line in text.lines() {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 4 {
+                    commits.push(serde_json::json!({
+                        "hash": parts[0],
+                        "message": parts[1],
+                        "author": parts[2],
+                        "time": parts[3]
+                    }));
+                }
+            }
+        }
+    }
+
+    // 4. Git status summary
+    let status_output = std::process::Command::new("git")
+        .args(["status", "--short"])
+        .current_dir(&project_path)
+        .output();
+    let is_clean = status_output
+        .ok()
+        .map(|o| o.stdout.is_empty())
+        .unwrap_or(true);
+
+    Ok(serde_json::json!({
+        "name": name,
+        "path": project_path.to_string_lossy(),
+        "branch": branch,
+        "remoteUrl": remote_url,
+        "isGitRepo": project_path.join(".git").exists(),
+        "isClean": is_clean,
+        "commits": commits
+    }))
+}
+
+#[tauri::command]
+pub async fn ultracode_git_sync(
+    action: String,
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let project_path = state.project_root.clone();
+    let git_args = match action.as_str() {
+        "pull" => vec!["pull", "origin", "main"],
+        "fetch" => vec!["fetch", "--all"],
+        _ => vec!["status", "--short"],
+    };
+
+    let output = std::process::Command::new("git")
+        .args(&git_args)
+        .current_dir(&project_path)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    Ok(serde_json::json!({
+        "success": output.status.success(),
+        "stdout": stdout,
+        "stderr": stderr
+    }))
+}
+
+#[tauri::command]
+pub async fn ultracode_github_list_repos(
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let project_path = state.project_root.clone();
+    let output = std::process::Command::new("gh")
+        .args(["repo", "list", "--limit", "10", "--json", "name,description,url,isPrivate,updatedAt"])
+        .current_dir(&project_path)
+        .output();
+
+    if let Ok(o) = output {
+        if o.status.success() {
+            if let Ok(json_val) = serde_json::from_slice::<serde_json::Value>(&o.stdout) {
+                return Ok(json_val);
+            }
+        }
+    }
+
+    Ok(serde_json::json!([
+        {
+            "name": "HiperCloudShell",
+            "description": "Ultracode Multi-Agent Orchestrator (Tauri v2 + Rust)",
+            "url": "https://github.com/tiagohbs/HiperCloudShell",
+            "isPrivate": false,
+            "updatedAt": chrono::Utc::now().to_rfc3339()
+        }
+    ]))
+}

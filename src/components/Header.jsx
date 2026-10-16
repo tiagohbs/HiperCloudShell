@@ -17,7 +17,9 @@ export default function Header({
   onToggleNotifications,
   onOpenNewWorkflow,
   theme = 'light',
-  onToggleTheme
+  onToggleTheme,
+  activeProject,
+  onNavigate
 }) {
   const getBreadcrumbs = () => {
     switch (activeView) {
@@ -25,6 +27,11 @@ export default function Header({
         return [
           { label: 'HiperCloudShell', highlight: false },
           { label: 'Dashboard Executivo', highlight: true }
+        ];
+      case 'projects':
+        return [
+          { label: 'Central de Projetos', highlight: false },
+          { label: activeProject?.name || 'GitHub', highlight: true }
         ];
       case 'workflows':
         return [
@@ -55,23 +62,43 @@ export default function Header({
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="h-14 flex-shrink-0 bg-beige-100/95 dark:bg-denim-950/95 border-b border-beige-300 dark:border-denim-800 px-4 flex items-center justify-between gap-4 backdrop-blur z-20 select-none transition-colors duration-150">
-      {/* Left: Dynamic Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs font-mono">
-        {breadcrumbs.map((crumb, idx) => (
-          <React.Fragment key={idx}>
-            {idx > 0 && <span className="text-espresso-400 dark:text-denim-400">/</span>}
-            <span
-              className={
-                crumb.highlight
-                  ? 'text-espresso-950 dark:text-denim-50 font-extrabold tracking-wide'
-                  : 'text-espresso-600 dark:text-denim-200 font-medium'
-              }
-            >
-              {crumb.label}
-            </span>
-          </React.Fragment>
-        ))}
+    <header className="h-14 flex-shrink-0 bg-white/80 dark:bg-denim-950/80 border-b border-beige-300 dark:border-denim-800 px-4 flex items-center justify-between gap-4 backdrop-blur-md z-20 select-none transition-colors duration-150">
+      {/* Left: Dynamic Breadcrumb & Active Project Chip */}
+      <div className="flex items-center gap-3">
+        {/* Active Project Pill (Apple HIG Style) */}
+        <button
+          type="button"
+          onClick={() => onNavigate && onNavigate('projects')}
+          className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-beige-200/70 dark:bg-denim-850 border border-beige-300 dark:border-denim-700 text-xs font-mono transition-all hover:border-gold-400 hover:shadow-xs cursor-pointer group"
+          title="Ver Detalhes do Projeto e Repositório GitHub"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-extrabold text-espresso-950 dark:text-denim-50 group-hover:text-gold-700 dark:group-hover:text-gold-400">
+            {activeProject?.name || 'HiperCloudShell'}
+          </span>
+          <span className="text-espresso-400 dark:text-denim-500">•</span>
+          <span className="text-gold-800 dark:text-gold-300 font-bold">
+             {activeProject?.branch || 'main'}
+          </span>
+        </button>
+
+        {/* Dynamic Breadcrumbs */}
+        <div className="flex items-center gap-2 text-xs font-mono">
+          {breadcrumbs.map((crumb, idx) => (
+            <React.Fragment key={idx}>
+              {idx > 0 && <span className="text-espresso-400 dark:text-denim-400">/</span>}
+              <span
+                className={
+                  crumb.highlight
+                    ? 'text-espresso-950 dark:text-denim-50 font-extrabold tracking-wide'
+                    : 'text-espresso-600 dark:text-denim-200 font-medium'
+                }
+              >
+                {crumb.label}
+              </span>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
 
       {/* Right: Theme Switcher, Dual Engine, Effort, Token Budget & Notifications */}

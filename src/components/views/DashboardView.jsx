@@ -25,7 +25,8 @@ export default function DashboardView({
   effort = 'ultracode',
   squadCatalog = [],
   improvements = {},
-  notifications = []
+  notifications = [],
+  activeProject = null
 }) {
   const runsList = Object.values(workflowRuns);
   const activeRunsCount = runsList.filter((r) => r.status === 'running').length;
@@ -80,6 +81,48 @@ export default function DashboardView({
               <span>Ver Terminais PTY</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Apple HIG / Material 3 Focused Project Context Bar */}
+      <div className="p-4 rounded-2xl bg-white/90 dark:bg-denim-850/90 border border-beige-300 dark:border-denim-750 flex flex-col sm:flex-row sm:items-center justify-between gap-4 backdrop-blur-md shadow-warm dark:shadow-denim">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gold-100 dark:bg-gold-950/70 border border-gold-300 dark:border-gold-700 text-gold-900 dark:text-gold-300 flex items-center justify-center font-bold text-lg shadow-xs">
+            📁
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-espresso-600 dark:text-denim-300">
+                Projeto Focado
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700">
+                Git Conectado
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <h2 className="text-base font-extrabold text-espresso-950 dark:text-white font-mono">
+                {activeProject?.name || 'HiperCloudShell'}
+              </h2>
+              <span className="text-xs font-mono font-bold text-gold-800 dark:text-gold-400 bg-gold-100 dark:bg-gold-950/70 px-2 py-0.5 rounded-full border border-gold-300 dark:border-gold-700">
+                 {activeProject?.branch || 'main'}
+              </span>
+            </div>
+            <p className="text-[11px] text-espresso-600 dark:text-denim-300 font-mono truncate max-w-md">
+              {activeProject?.remoteUrl || 'https://github.com/tiagohbs/HiperCloudShell.git'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => onNavigate && onNavigate('projects')}
+            className="px-4 py-2 rounded-xl bg-beige-200/80 dark:bg-denim-800 hover:bg-gold-100 dark:hover:bg-denim-750 text-espresso-950 dark:text-denim-100 font-bold text-xs border border-beige-300 dark:border-denim-700 transition cursor-pointer flex items-center gap-2 shadow-xs group"
+          >
+            <span>Gerenciar Repositório & Issues</span>
+            <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </button>
         </div>
       </div>
 

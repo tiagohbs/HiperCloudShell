@@ -76,6 +76,9 @@ pub fn run() {
             commands::ultracode_follow_notification_source,
             commands::ultracode_trigger_self_improvement,
             commands::ultracode_cloudshell_inspect,
+            commands::ultracode_get_project_context,
+            commands::ultracode_git_sync,
+            commands::ultracode_github_list_repos,
         ])
         .run(tauri::generate_context!())
         .expect("Erro ao iniciar aplicação Tauri v2 HiperCloudShell");

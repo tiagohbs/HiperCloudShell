@@ -7,7 +7,8 @@ import {
   IconPalette,
   IconShieldAlert,
   IconSettings,
-  IconPlus
+  IconPlus,
+  IconGitBranch
 } from './Icons.jsx';
 
 export default function Sidebar({
@@ -17,6 +18,7 @@ export default function Sidebar({
   onOpenSettings,
   workflowRunsCount = 0,
   improvementsCount = 0,
+  activeProjectName = 'HiperCloudShell',
   provider = 'hybrid'
 }) {
   const navItems = [
@@ -25,6 +27,13 @@ export default function Sidebar({
       label: 'Dashboard',
       icon: <IconHome className="w-4 h-4" />,
       badge: null
+    },
+    {
+      id: 'projects',
+      label: 'Projetos & GitHub',
+      icon: <IconGitBranch className="w-4 h-4" />,
+      badge: activeProjectName,
+      badgeColor: 'bg-gold-100 dark:bg-gold-950/60 text-gold-900 dark:text-gold-300 border-gold-300 dark:border-gold-700'
     },
     {
       id: 'workflows',
