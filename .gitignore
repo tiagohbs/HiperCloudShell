@@ -4,6 +4,9 @@ node_modules/
 # HiperCloudShell Maestro & Worktrees
 .worktrees/
 .maestro/
+**/src-tauri/.worktrees/
+**/src-tauri/.maestro/
+**/src-tauri/.claude/
 
 # Compressed archives
 *.zip

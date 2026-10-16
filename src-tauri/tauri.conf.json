@@ -5,11 +5,12 @@
   "identifier": "io.hipercloudshell.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://127.0.0.1:5173",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "HiperCloudShell ADE (Tauri v2)",

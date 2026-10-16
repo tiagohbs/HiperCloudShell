@@ -4,8 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HiperCloudShell ADE</title>
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('hcs_theme') || 'light';
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#07090e] text-slate-100">
+  <body class="bg-[#F9F6F0] dark:bg-[#0B1324] text-[#140E0A] dark:text-[#D6E3F7] antialiased selection:bg-[#D4A81E]/30">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
