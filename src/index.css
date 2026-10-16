@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html, body, #root {
@@ -11,24 +11,29 @@ html, body, #root {
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #07090e;
-  color: #f1f5f9;
+  background-color: #F9F6F0;
+  color: #1E150F;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
 }
 
-/* Custom sleek scrollbar for developer dark theme */
+::selection {
+  background: #EED472;
+  color: #140E0A;
+}
+
+/* Custom warm parchment scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d14;
+  background: #EFE8DA;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #D5C7AF;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #BDB096;
 }

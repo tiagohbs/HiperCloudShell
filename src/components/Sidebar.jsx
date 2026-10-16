@@ -31,69 +31,75 @@ export default function Sidebar({
       label: 'Workflows & DAG',
       icon: <IconZap className="w-4 h-4" />,
       badge: workflowRunsCount > 0 ? String(workflowRunsCount) : null,
-      badgeColor: 'bg-violet-900/60 text-violet-300 border-violet-500/40'
+      badgeColor: 'bg-gold-100 text-gold-800 border-gold-300'
     },
     {
       id: 'grid',
       label: 'Terminais PTY',
       icon: <IconTerminal className="w-4 h-4" />,
       badge: 'ConPTY',
-      badgeColor: 'bg-cyan-950/60 text-cyan-300 border-cyan-800/40'
+      badgeColor: 'bg-beige-200 text-espresso-700 border-beige-300'
     },
     {
       id: 'pixel-forge',
       label: 'Pixel Forge 3D',
       icon: <IconPalette className="w-4 h-4" />,
       badge: 'Squad 8',
-      badgeColor: 'bg-emerald-950/60 text-emerald-300 border-emerald-800/40'
+      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300'
     },
     {
       id: 'self-improvement',
       label: 'Auto-Melhoria',
       icon: <IconShieldAlert className="w-4 h-4" />,
       badge: improvementsCount > 0 ? String(improvementsCount) : null,
-      badgeColor: 'bg-rose-950/60 text-rose-300 border-rose-800/40'
+      badgeColor: 'bg-rose-100 text-rose-800 border-rose-300'
     }
   ];
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-[#090c13] border-r border-slate-800/90 flex flex-col justify-between select-none z-20">
+    <aside className="w-64 flex-shrink-0 bg-beige-150 border-r border-beige-300 flex flex-col justify-between select-none z-20">
       {/* Top: Logo & Main Action */}
       <div>
         {/* Brand Header */}
-        <div className="p-4 border-b border-slate-800/70 flex items-center justify-between">
+        <div className="p-4 border-b border-beige-300 flex items-center justify-between bg-beige-100/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20 font-bold text-white text-sm">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 via-gold-500 to-amber-600 flex items-center justify-center shadow-gold font-extrabold text-espresso-950 text-sm border border-gold-300">
               H
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-xs uppercase tracking-wider text-white">HiperCloudShell</span>
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-violet-500/20 text-violet-300 font-mono border border-violet-500/30">ADE</span>
+                <span className="font-extrabold text-xs uppercase tracking-wider text-espresso-950">
+                  HiperCloudShell
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-gold-200/60 text-gold-800 font-mono font-bold border border-gold-300">
+                  ADE
+                </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-mono">Ultracode Multi-Agent</p>
+              <p className="text-[10px] text-espresso-600 font-mono">Ultracode Multi-Agent</p>
             </div>
           </div>
         </div>
 
-        {/* Global Primary Action Button: "+ Novo Workflow" */}
+        {/* Global Primary Action Button: "+ Novo Workflow" (Dourado Brilhante) */}
         <div className="p-3">
           <button
             type="button"
             onClick={onOpenNewWorkflow}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-lg shadow-violet-900/40 flex items-center justify-between transition group cursor-pointer"
+            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold hover:shadow-gold-lg flex items-center justify-between transition-all duration-200 group cursor-pointer border border-gold-300"
           >
             <span className="flex items-center gap-2">
-              <IconPlus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+              <IconPlus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200 text-espresso-950" />
               <span>Novo Workflow</span>
             </span>
-            <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-white/20 text-violet-100 font-mono">Ctrl+K</kbd>
+            <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-espresso-950/10 text-espresso-900 font-mono font-bold">
+              Ctrl+K
+            </kbd>
           </button>
         </div>
 
         {/* Navigation Items */}
         <nav className="px-3 space-y-1">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 px-2 py-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-espresso-500 px-2 py-1 font-mono">
             Espaços de Trabalho
           </div>
 
@@ -104,18 +110,25 @@ export default function Sidebar({
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                className={`w-full px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-between transition cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   isActive
-                    ? 'bg-violet-600/15 text-white font-semibold border border-violet-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                    ? 'bg-white text-espresso-950 border border-gold-400 shadow-warm font-bold'
+                    : 'text-espresso-700 hover:text-espresso-950 hover:bg-beige-200/70 border border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <span className={isActive ? 'text-violet-400' : 'text-slate-400'}>{item.icon}</span>
+                  <span className={isActive ? 'text-gold-600 font-bold' : 'text-espresso-500'}>
+                    {item.icon}
+                  </span>
                   <span>{item.label}</span>
                 </div>
+
                 {item.badge && (
-                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${item.badgeColor || 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                  <span
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                      item.badgeColor || 'bg-beige-200 text-espresso-700 border-beige-300'
+                    }`}
+                  >
                     {item.badge}
                   </span>
                 )}
@@ -125,34 +138,37 @@ export default function Sidebar({
         </nav>
       </div>
 
-      {/* Bottom: Connection Status & Settings */}
-      <div className="p-3 border-t border-slate-800/80 space-y-2 bg-[#06080e]/60">
-        {/* Stitch MCP Status Pill */}
-        <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-800/80 text-[11px] font-mono flex items-center justify-between">
+      {/* Bottom: Google Stitch Status & Settings */}
+      <div className="p-3 border-t border-beige-300 bg-beige-100/60 space-y-2">
+        <div className="p-2.5 rounded-xl bg-white border border-beige-300 flex items-center justify-between text-xs shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-slate-300 font-medium">Google Stitch</span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <div className="text-[11px] font-mono leading-tight">
+              <div className="font-bold text-espresso-950 flex items-center gap-1">
+                <span>Stitch MCP</span>
+                <span className="text-emerald-700 text-[10px]">✔</span>
+              </div>
+              <div className="text-[10px] text-espresso-500">Google Remote SSE</div>
+            </div>
           </div>
-          <span className="text-[10px] text-emerald-400 font-bold">Conectado</span>
+
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="p-1.5 rounded-lg text-espresso-600 hover:text-espresso-950 hover:bg-beige-200 transition cursor-pointer"
+            title="Configurações & Chaves"
+          >
+            <IconSettings className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Dual Engine Info */}
-        <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-800/80 text-[11px] font-mono flex items-center justify-between">
-          <span className="text-slate-400">Motor Ativo:</span>
-          <span className="text-[10px] text-violet-300 font-semibold uppercase">
-            {provider === 'hybrid' ? '⚡ Híbrido' : provider}
-          </span>
+        <div className="flex items-center justify-between text-[10px] font-mono text-espresso-500 px-1">
+          <span>Dual-Engine:</span>
+          <span className="font-bold uppercase text-gold-700">{provider}</span>
         </div>
-
-        {/* Settings Button */}
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="w-full py-2 px-3 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-800 transition flex items-center gap-2 cursor-pointer"
-        >
-          <IconSettings className="w-3.5 h-3.5 text-slate-400" />
-          <span>Configurações & Integrações</span>
-        </button>
       </div>
     </aside>
   );

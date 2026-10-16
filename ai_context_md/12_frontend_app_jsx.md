@@ -942,7 +942,7 @@ export default function App() {
   const activeRun = selectedRunId ? workflowRuns[selectedRunId] : Object.values(workflowRuns)[0] || null;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#06080c] text-slate-100 font-sans select-none antialiased">
+    <div className="flex h-screen w-screen overflow-hidden bg-beige-100 text-espresso-950 font-sans select-none antialiased">
       {/* 1. Barra Lateral Fixa de Navegação */}
       <Sidebar
         activeView={activeView}

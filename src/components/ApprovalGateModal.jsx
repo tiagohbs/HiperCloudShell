@@ -19,7 +19,7 @@ export default function ApprovalGateModal({
 }) {
   const [adjustmentPrompt, setAdjustmentPrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('gates'); // 'gates' | 'diff' | 'contracts'
+  const [activeTab, setActiveTab] = useState('gates'); // 'gates' | 'diff' | 'adjust'
 
   if (!isOpen || !run) return null;
 
@@ -33,7 +33,7 @@ export default function ApprovalGateModal({
     },
     {
       id: 'gate-tests',
-      title: 'Suite de Testes E2E & Unitários',
+      title: 'Suíte de Testes E2E & Unitários',
       description: 'Execução de npm test com isolamento em Git Worktree.',
       status: 'passed',
       latency: '240ms'
@@ -102,26 +102,26 @@ export default function ApprovalGateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-3xl bg-[#0b0f17] border border-slate-800 rounded-2xl shadow-2xl shadow-violet-950/40 flex flex-col max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-espresso-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-3xl bg-beige-50 border border-beige-300 rounded-2xl shadow-warm-lg flex flex-col max-h-[90vh] overflow-hidden text-espresso-900">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+        <div className="p-5 border-b border-beige-300 bg-beige-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-emerald-950/40">
-              <IconShieldAlert className="w-5 h-5 text-emerald-200" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 via-gold-500 to-amber-600 flex items-center justify-center text-espresso-950 shadow-gold border border-gold-300">
+              <IconShieldAlert className="w-5 h-5 text-espresso-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white font-mono">
+                <h3 className="text-base font-extrabold text-espresso-950 font-mono">
                   Quality Gate & Human Approval
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-gold-100 text-gold-800 border border-gold-300 font-extrabold">
                   GATES: 5/5 PASSED
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">
-                Workflow: <strong className="text-slate-200">{run.meta?.name || run.id}</strong> • Fase:{' '}
-                <strong className="text-emerald-300">{run.currentPhase || 'Validação Concluída'}</strong>
+              <p className="text-xs text-espresso-600 font-mono mt-0.5">
+                Workflow: <strong className="text-espresso-950">{run.meta?.name || run.id}</strong> • Fase:{' '}
+                <strong className="text-gold-700">{run.currentPhase || 'Validação Concluída'}</strong>
               </p>
             </div>
           </div>
@@ -129,21 +129,21 @@ export default function ApprovalGateModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+            className="w-8 h-8 rounded-lg bg-white border border-beige-300 hover:bg-beige-200 text-espresso-600 hover:text-espresso-950 flex items-center justify-center transition cursor-pointer shadow-xs"
           >
             ✕
           </button>
         </div>
 
         {/* Tab Controls */}
-        <div className="px-5 border-b border-slate-800/80 bg-slate-950 flex gap-4 text-xs font-mono">
+        <div className="px-5 border-b border-beige-300 bg-beige-100/60 flex gap-4 text-xs font-mono">
           <button
             type="button"
             onClick={() => setActiveTab('gates')}
-            className={`py-2.5 border-b-2 font-semibold transition cursor-pointer ${
+            className={`py-2.5 border-b-2 font-bold transition cursor-pointer ${
               activeTab === 'gates'
-                ? 'border-emerald-500 text-emerald-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-gold-500 text-espresso-950'
+                : 'border-transparent text-espresso-600 hover:text-espresso-950'
             }`}
           >
             ✓ Quality Gates Checklist
@@ -151,10 +151,10 @@ export default function ApprovalGateModal({
           <button
             type="button"
             onClick={() => setActiveTab('diff')}
-            className={`py-2.5 border-b-2 font-semibold transition cursor-pointer ${
+            className={`py-2.5 border-b-2 font-bold transition cursor-pointer ${
               activeTab === 'diff'
-                ? 'border-emerald-500 text-emerald-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-gold-500 text-espresso-950'
+                : 'border-transparent text-espresso-600 hover:text-espresso-950'
             }`}
           >
             Arquivos Modificados ({changedFiles.length})
@@ -162,10 +162,10 @@ export default function ApprovalGateModal({
           <button
             type="button"
             onClick={() => setActiveTab('adjust')}
-            className={`py-2.5 border-b-2 font-semibold transition cursor-pointer ${
+            className={`py-2.5 border-b-2 font-bold transition cursor-pointer ${
               activeTab === 'adjust'
-                ? 'border-emerald-500 text-emerald-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-gold-500 text-espresso-950'
+                : 'border-transparent text-espresso-600 hover:text-espresso-950'
             }`}
           >
             🔄 Solicitar Ajuste
@@ -173,33 +173,33 @@ export default function ApprovalGateModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-beige-50">
           {activeTab === 'gates' && (
             <div className="space-y-2.5">
-              <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between text-xs font-mono">
-                <span className="text-emerald-300 font-semibold flex items-center gap-2">
-                  <IconCheck className="w-4 h-4 text-emerald-400" />
+              <div className="p-3.5 rounded-xl bg-gold-50 border border-gold-300 flex items-center justify-between text-xs font-mono shadow-xs">
+                <span className="text-espresso-950 font-bold flex items-center gap-2">
+                  <IconCheck className="w-4 h-4 text-gold-600" />
                   Todos os requisitos determinísticos foram cumpridos com sucesso.
                 </span>
-                <span className="text-slate-400 text-[11px]">Pronto para Merge na Main</span>
+                <span className="text-gold-800 text-[11px] font-bold">Pronto para Merge na Main</span>
               </div>
 
               <div className="space-y-2">
                 {gates.map((g) => (
                   <div
                     key={g.id}
-                    className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between gap-3 text-xs"
+                    className="p-3 rounded-xl bg-white border border-beige-300 flex items-center justify-between gap-3 text-xs shadow-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-extrabold text-xs">
                         ✓
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-200 font-mono">{g.title}</div>
-                        <div className="text-[11px] text-slate-400">{g.description}</div>
+                        <div className="font-bold text-espresso-950 font-mono">{g.title}</div>
+                        <div className="text-[11px] text-espresso-600">{g.description}</div>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-beige-100 text-gold-800 border border-beige-300 font-bold">
                       {g.latency}
                     </span>
                   </div>
@@ -210,23 +210,23 @@ export default function ApprovalGateModal({
 
           {activeTab === 'diff' && (
             <div className="space-y-3">
-              <div className="text-xs font-mono text-slate-400">
+              <div className="text-xs font-mono text-espresso-700">
                 Arquivos modificados em worktree isolada:
               </div>
               <div className="space-y-1.5">
                 {changedFiles.map((file, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 font-mono text-xs flex items-center justify-between"
+                    className="p-2.5 rounded-lg bg-white border border-beige-300 font-mono text-xs flex items-center justify-between shadow-xs"
                   >
-                    <span className="text-cyan-300">{file}</span>
-                    <span className="text-[10px] text-emerald-400 font-semibold">+42 / -8</span>
+                    <span className="text-espresso-950 font-bold">{file}</span>
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">+42 / -8</span>
                   </div>
                 ))}
               </div>
-              <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300">
-                <strong>Resumo da Execução:</strong>
-                <pre className="mt-1 whitespace-pre-wrap text-slate-400 text-[10px]">
+              <div className="p-3.5 rounded-lg bg-white border border-beige-300 text-[11px] font-mono text-espresso-800 shadow-xs">
+                <strong className="text-espresso-950">Resumo da Execução:</strong>
+                <pre className="mt-1 whitespace-pre-wrap text-espresso-600 text-[10px]">
                   {run.finalResult
                     ? typeof run.finalResult === 'string'
                       ? run.finalResult
@@ -239,7 +239,7 @@ export default function ApprovalGateModal({
 
           {activeTab === 'adjust' && (
             <div className="space-y-3">
-              <div className="text-xs font-mono text-slate-300">
+              <div className="text-xs font-mono text-espresso-800">
                 Não está satisfeito com o resultado? Envie instruções de ajuste para o Agente na mesma worktree:
               </div>
               <textarea
@@ -247,28 +247,28 @@ export default function ApprovalGateModal({
                 onChange={(e) => setAdjustmentPrompt(e.target.value)}
                 rows={4}
                 placeholder="Ex: Altere o contrato para aceitar timeout em milissegundos e adicione mais 2 testes no mirror.spec.js..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                className="w-full bg-white border border-beige-300 rounded-xl p-3 text-xs font-mono text-espresso-950 placeholder-espresso-400 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none shadow-xs"
               />
               <button
                 type="button"
                 disabled={!adjustmentPrompt.trim() || isSubmitting}
                 onClick={handleAdjustment}
-                className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-semibold text-xs transition cursor-pointer flex items-center gap-2"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 disabled:opacity-50 text-espresso-950 font-bold text-xs transition cursor-pointer flex items-center gap-2 shadow-gold border border-gold-300"
               >
-                <IconZap className="w-3.5 h-3.5" />
+                <IconZap className="w-3.5 h-3.5 text-espresso-950" />
                 <span>Enviar Ajuste para Re-execução</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3">
+        {/* Footer Actions (Botões de Decisão em Dourado Brilhante) */}
+        <div className="p-4 border-t border-beige-300 bg-beige-100 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleDiscard}
             disabled={isSubmitting}
-            className="px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 font-semibold text-xs transition cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 font-bold text-xs transition cursor-pointer"
           >
             ✕ Descartar Worktree
           </button>
@@ -278,7 +278,7 @@ export default function ApprovalGateModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-white hover:bg-beige-200 text-espresso-800 border border-beige-300 font-semibold text-xs transition cursor-pointer shadow-xs"
             >
               Cancelar
             </button>
@@ -286,9 +286,9 @@ export default function ApprovalGateModal({
               type="button"
               onClick={handleApprove}
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/50 transition cursor-pointer flex items-center gap-2"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold hover:shadow-gold-lg transition cursor-pointer flex items-center gap-2 border border-gold-300"
             >
-              <IconCheck className="w-4 h-4" />
+              <IconCheck className="w-4 h-4 text-espresso-950" />
               <span>{isSubmitting ? 'Fazendo Merge...' : '✓ Aprovar e Fazer Merge na Main'}</span>
             </button>
           </div>

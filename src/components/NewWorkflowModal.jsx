@@ -1,21 +1,23 @@
 // src/components/NewWorkflowModal.jsx
 import React, { useState } from 'react';
-import { IconClose, IconZap, IconPlus, IconCheck, IconLayers } from './Icons.jsx';
+import { IconClose, IconZap, IconPlus, IconCheck, IconLayers, IconCpu } from './Icons.jsx';
 
 export default function NewWorkflowModal({
   isOpen,
   onClose,
-  onSubmit,
   squadCatalog = [],
-  currentProvider = 'hybrid',
-  currentEffort = 'ultracode'
+  onLaunchSquad,
+  onCustomWorkflow,
+  defaultProvider = 'hybrid',
+  defaultEffort = 'ultracode',
+  defaultBudget = 50000
 }) {
   const [step, setStep] = useState(1); // 1: Intenção/Squad, 2: Motor/Orçamento, 3: Revisão
   const [prompt, setPrompt] = useState('ultracode: auditar rotas e executar verificações em worktree');
   const [selectedSquad, setSelectedSquad] = useState(null);
-  const [provider, setProvider] = useState(currentProvider);
-  const [effort, setEffort] = useState(currentEffort);
-  const [tokenBudget, setTokenBudget] = useState(50000);
+  const [provider, setProvider] = useState(defaultProvider);
+  const [effort, setEffort] = useState(defaultEffort);
+  const [tokenBudget, setTokenBudget] = useState(defaultBudget);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [inputMode, setInputMode] = useState('prompt'); // 'prompt' | 'squads'
 
@@ -43,30 +45,29 @@ export default function NewWorkflowModal({
   const handleConfirmSubmit = (e) => {
     e.preventDefault();
     if (!prompt.trim()) return;
-    onSubmit({
-      prompt,
-      provider,
-      effort,
-      tokenBudget,
-      squad: selectedSquad
-    });
+
+    if (selectedSquad && onLaunchSquad) {
+      onLaunchSquad(selectedSquad, prompt, true);
+    } else if (onCustomWorkflow) {
+      onCustomWorkflow(prompt);
+    }
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl bg-[#0b0f17] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-espresso-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-3xl bg-beige-50 border border-beige-300 rounded-2xl shadow-warm-lg overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-[#080b11]">
+        <div className="p-4 border-b border-beige-300 flex items-center justify-between bg-beige-100">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-600/20 text-violet-400 border border-violet-500/40 flex items-center justify-center font-bold">
-              <IconZap className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 via-gold-500 to-amber-600 text-espresso-950 border border-gold-300 flex items-center justify-center font-bold shadow-gold">
+              <IconZap className="w-4 h-4 text-espresso-950" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+              <h2 className="text-sm font-extrabold text-espresso-950 uppercase tracking-wider font-mono">
                 Novo Workflow Autônomo
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-espresso-600">
                 Inicie um pipeline multiagente em sandbox JavaScript e Git Worktrees
               </p>
             </div>
@@ -74,50 +75,50 @@ export default function NewWorkflowModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-espresso-500 hover:text-espresso-950 hover:bg-beige-200 transition cursor-pointer"
           >
             <IconClose className="w-4 h-4" />
           </button>
         </div>
 
         {/* Stepper Wizard Progress */}
-        <div className="px-6 py-3 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs font-mono">
+        <div className="px-6 py-3 bg-beige-100/70 border-b border-beige-300 flex items-center justify-between text-xs font-mono">
           <div
             onClick={() => setStep(1)}
             className={`flex items-center gap-2 cursor-pointer ${
-              step === 1 ? 'text-violet-400 font-bold' : step > 1 ? 'text-emerald-400' : 'text-slate-500'
+              step === 1 ? 'text-espresso-950 font-extrabold' : step > 1 ? 'text-emerald-700 font-bold' : 'text-espresso-400'
             }`}
           >
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
-              step === 1 ? 'bg-violet-600 text-white' : step > 1 ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+              step === 1 ? 'bg-gold-500 text-espresso-950 shadow-gold' : step > 1 ? 'bg-emerald-600 text-white' : 'bg-beige-300 text-espresso-600'
             }`}>
               {step > 1 ? '✓' : '1'}
             </span>
             <span>Intenção & Squad</span>
           </div>
-          <span className="text-slate-700">───</span>
+          <span className="text-beige-400">───</span>
           <div
             onClick={() => step > 1 && setStep(2)}
             className={`flex items-center gap-2 cursor-pointer ${
-              step === 2 ? 'text-violet-400 font-bold' : step > 2 ? 'text-emerald-400' : 'text-slate-500'
+              step === 2 ? 'text-espresso-950 font-extrabold' : step > 2 ? 'text-emerald-700 font-bold' : 'text-espresso-400'
             }`}
           >
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
-              step === 2 ? 'bg-violet-600 text-white' : step > 2 ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+              step === 2 ? 'bg-gold-500 text-espresso-950 shadow-gold' : step > 2 ? 'bg-emerald-600 text-white' : 'bg-beige-300 text-espresso-600'
             }`}>
               {step > 2 ? '✓' : '2'}
             </span>
             <span>Motor & Orçamento</span>
           </div>
-          <span className="text-slate-700">───</span>
+          <span className="text-beige-400">───</span>
           <div
             onClick={() => step > 2 && setStep(3)}
             className={`flex items-center gap-2 cursor-pointer ${
-              step === 3 ? 'text-violet-400 font-bold' : 'text-slate-500'
+              step === 3 ? 'text-espresso-950 font-extrabold' : 'text-espresso-400'
             }`}
           >
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
-              step === 3 ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'
+              step === 3 ? 'bg-gold-500 text-espresso-950 shadow-gold' : 'bg-beige-300 text-espresso-600'
             }`}>
               3
             </span>
@@ -125,73 +126,77 @@ export default function NewWorkflowModal({
           </div>
         </div>
 
-        {/* Modal Body: Passo a Passo */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Modal Body / Steps */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-beige-50">
+          {/* STEP 1: Intenção & Squad */}
           {step === 1 && (
             <div className="space-y-4">
-              {/* Abas de Modo: Prompt Livre vs Squads Canônicos */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-espresso-900 font-mono">
+                    Como deseja iniciar?
+                  </h3>
+                  <p className="text-xs text-espresso-600">
+                    Digite um objetivo livre ou escolha um dos 8 Squads pré-configurados do Overclock.sh
+                  </p>
+                </div>
+
+                <div className="flex bg-beige-200 border border-beige-300 p-0.5 rounded-lg text-xs font-mono">
                   <button
                     type="button"
                     onClick={() => setInputMode('prompt')}
-                    className={`px-3 py-1.5 rounded-md transition cursor-pointer ${
-                      inputMode === 'prompt'
-                        ? 'bg-violet-600 text-white font-bold'
-                        : 'text-slate-400 hover:text-slate-200'
+                    className={`px-3 py-1 rounded transition cursor-pointer ${
+                      inputMode === 'prompt' ? 'bg-white text-espresso-950 font-bold shadow-xs' : 'text-espresso-600 hover:text-espresso-950'
                     }`}
                   >
-                    ✏️ Prompt Livre (Ultracode)
+                    Prompt Livre
                   </button>
                   <button
                     type="button"
                     onClick={() => setInputMode('squads')}
-                    className={`px-3 py-1.5 rounded-md transition cursor-pointer ${
-                      inputMode === 'squads'
-                        ? 'bg-violet-600 text-white font-bold'
-                        : 'text-slate-400 hover:text-slate-200'
+                    className={`px-3 py-1 rounded transition cursor-pointer ${
+                      inputMode === 'squads' ? 'bg-white text-espresso-950 font-bold shadow-xs' : 'text-espresso-600 hover:text-espresso-950'
                     }`}
                   >
-                    🚀 Arsenal de 8 Squads ({squadCatalog.length})
+                    Catálogo Squads ({squadCatalog.length})
                   </button>
                 </div>
-                <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
-                  {inputMode === 'prompt' ? 'Descreva o objetivo livremente' : 'Escolha um template pronto'}
-                </span>
               </div>
 
               {inputMode === 'prompt' ? (
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-mono text-slate-300 mb-1.5">
-                      Descreva o que os subagentes devem executar:
+                  <div className="p-4 bg-white border border-beige-300 rounded-xl space-y-2 shadow-xs">
+                    <label className="text-xs font-bold text-espresso-950 font-mono flex items-center gap-1.5">
+                      <IconZap className="w-3.5 h-3.5 text-gold-600" />
+                      <span>Instrução Principal do Workflow</span>
                     </label>
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       rows={4}
-                      placeholder="Ex: ultracode: auditar todas as rotas da API, balancear VRAM nos componentes 3D e executar suite Playwright..."
-                      className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-violet-200 focus:outline-none focus:border-violet-500 resize-none shadow-inner"
+                      placeholder="Ex: ultracode: refatorar toda a camada de comunicação do backend e criar testes com worktree"
+                      className="w-full bg-beige-50 border border-beige-300 rounded-lg p-3 text-xs font-mono text-espresso-950 placeholder-espresso-400 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"
                     />
+                    <div className="flex justify-between items-center text-[10px] text-espresso-500 font-mono">
+                      <span>Prefixo "ultracode:" ativa o planejador dinâmico em JavaScript sandbox</span>
+                      <span>{prompt.length} caracteres</span>
+                    </div>
                   </div>
 
-                  {/* Sugestões Rápidas */}
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block mb-1.5">
-                      Sugestões de Fluxos Comuns:
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-mono text-espresso-600">Sugestões Rápidas:</div>
+                    <div className="flex flex-wrap gap-1.5">
                       {[
-                        'ultracode: auditar rotas e executar suite de testes em worktrees isoladas',
-                        'ultracode: squad-pixel-forge-3d gerar 3 variantes de escudo 3D e prancha PNG',
-                        'ultracode: squad-backend-fortress detectar race conditions nas APIs de banco',
-                        'ultracode: squad-3d-shader-studio validar dispose de memória VRAM e 60 FPS'
+                        'ultracode: auditar integridade de worktrees e sincronização Zod',
+                        'ultracode: /squad-backend-fortress testar concorrência e race condition',
+                        'ultracode: /squad-3d-shader-studio cena Three.js 60fps com shaders GLSL',
+                        'ultracode: /squad-pixel-forge-3d forjar asset 3D e exportar pixel art'
                       ].map((sug, i) => (
                         <button
                           key={i}
                           type="button"
                           onClick={() => handleQuickPrompt(sug)}
-                          className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 hover:border-violet-500/50 hover:bg-slate-900 text-slate-300 text-left text-[11px] font-mono transition cursor-pointer"
+                          className="px-2.5 py-1 rounded bg-white hover:bg-beige-100 text-espresso-800 text-[11px] font-mono border border-beige-300 transition cursor-pointer text-left shadow-xs"
                         >
                           {sug}
                         </button>
@@ -200,10 +205,8 @@ export default function NewWorkflowModal({
                   </div>
                 </div>
               ) : (
-                /* Seleção por Arsenal de Squads */
                 <div className="space-y-3">
-                  {/* Categorias */}
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5 border-b border-beige-300 pb-2">
                     {categories.map((cat) => (
                       <button
                         key={cat}
@@ -211,8 +214,8 @@ export default function NewWorkflowModal({
                         onClick={() => setSelectedCategory(cat)}
                         className={`px-2.5 py-1 rounded-md text-xs font-mono transition cursor-pointer ${
                           selectedCategory === cat
-                            ? 'bg-violet-600 text-white font-bold'
-                            : 'bg-slate-950 text-slate-400 border border-slate-800 hover:border-slate-700'
+                            ? 'bg-gold-500 text-espresso-950 font-bold shadow-gold'
+                            : 'bg-white text-espresso-700 border border-beige-300 hover:bg-beige-100'
                         }`}
                       >
                         {cat}
@@ -220,33 +223,32 @@ export default function NewWorkflowModal({
                     ))}
                   </div>
 
-                  {/* Cards dos Squads */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
                     {visibleSquads.map((squad) => (
                       <div
                         key={squad.slug}
                         onClick={() => handleSelectSquad(squad)}
-                        className={`p-3 rounded-xl border text-xs flex flex-col justify-between transition cursor-pointer ${
+                        className={`p-3.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
                           selectedSquad?.slug === squad.slug
-                            ? 'bg-violet-950/30 border-violet-500 shadow-md shadow-violet-900/20'
-                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                            ? 'border-gold-500 bg-gold-50/70 shadow-gold'
+                            : 'border-beige-300 bg-white hover:border-gold-400 hover:shadow-warm'
                         }`}
                       >
                         <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400">
-                              {squad.category}
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="font-extrabold text-xs text-espresso-950">{squad.title}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gold-100 text-gold-800 border border-gold-300 font-bold">
+                              {squad.command}
                             </span>
-                            <code className="text-[10px] text-slate-500 font-mono">{squad.command}</code>
                           </div>
-                          <h4 className="font-bold text-slate-100 mb-1">{squad.title}</h4>
-                          <p className="text-[11px] text-slate-400 line-clamp-2 mb-2">{squad.description}</p>
+                          <p className="text-[11px] text-espresso-700 leading-relaxed">
+                            {squad.description}
+                          </p>
                         </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-900">
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            Claude: {squad.recommendedEffort?.claude} • AGY: {squad.recommendedEffort?.antigravity}
-                          </span>
-                          <span className="text-violet-400 font-bold text-[11px]">Selecionar →</span>
+
+                        <div className="mt-3 pt-2 border-t border-beige-200 flex items-center justify-between text-[10px] font-mono text-espresso-500">
+                          <span>Categoria: <strong className="text-espresso-800">{squad.category}</strong></span>
+                          <span className="text-gold-700 font-bold">Selecionar →</span>
                         </div>
                       </div>
                     ))}
@@ -256,201 +258,198 @@ export default function NewWorkflowModal({
             </div>
           )}
 
+          {/* STEP 2: Motor Dual-Engine & Orçamento */}
           {step === 2 && (
             <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Selecione o Motor de IA e Limite Financeiro
-              </h3>
-
-              {/* Seletor de Motor */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div
-                  onClick={() => setProvider('hybrid')}
-                  className={`p-3.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
-                    provider === 'hybrid'
-                      ? 'border-violet-500 bg-violet-950/20 shadow-md shadow-violet-900/30'
-                      : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-white font-mono">⚡ Híbrido Autônomo</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-600 text-white font-mono">Recomendado</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Claude Code arquiteta e valida; Antigravity testa e explora em paralelo.
-                    </p>
+              <div className="p-4 bg-white border border-beige-300 rounded-xl space-y-3 shadow-xs">
+                <label className="text-xs font-bold text-espresso-950 font-mono block">
+                  1. Seleção do Provedor de Agentes (Dual-Engine)
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div
+                    onClick={() => setProvider('claude')}
+                    className={`p-3 rounded-xl border cursor-pointer transition ${
+                      provider === 'claude'
+                        ? 'border-orange-500 bg-orange-50/80 text-espresso-950 shadow-xs'
+                        : 'border-beige-300 bg-beige-50/50 hover:bg-white text-espresso-800'
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-orange-700">Claude Code CLI</div>
+                    <div className="text-[10px] text-espresso-600 mt-1">Especialista em Refatoração & QA</div>
                   </div>
-                  <div className="text-[10px] text-violet-400 font-mono mt-3">Máximo desempenho e rigor</div>
-                </div>
 
-                <div
-                  onClick={() => setProvider('claude')}
-                  className={`p-3.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
-                    provider === 'claude'
-                      ? 'border-orange-500 bg-orange-950/20 shadow-md shadow-orange-900/30'
-                      : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-white font-mono">Claude Code CLI</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-900/60 text-orange-300 font-mono">Sonnet 3.7</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Raciocínio profundo, refatorações amplas e conformidade de tipos rigorosa.
-                    </p>
+                  <div
+                    onClick={() => setProvider('antigravity')}
+                    className={`p-3 rounded-xl border cursor-pointer transition ${
+                      provider === 'antigravity'
+                        ? 'border-blue-500 bg-blue-50/80 text-espresso-950 shadow-xs'
+                        : 'border-beige-300 bg-beige-50/50 hover:bg-white text-espresso-800'
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-blue-700">Antigravity CLI</div>
+                    <div className="text-[10px] text-espresso-600 mt-1">Especialista em Exploração & 3D</div>
                   </div>
-                  <div className="text-[10px] text-orange-400 font-mono mt-3">Foco em arquitetura e código</div>
-                </div>
 
-                <div
-                  onClick={() => setProvider('antigravity')}
-                  className={`p-3.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
-                    provider === 'antigravity'
-                      ? 'border-blue-500 bg-blue-950/20 shadow-md shadow-blue-900/30'
-                      : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-white font-mono">Google Antigravity</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300 font-mono">agy CLI</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Velocidade de inferência, testes de estresse, scripts e integração com Stitch.
-                    </p>
+                  <div
+                    onClick={() => setProvider('hybrid')}
+                    className={`p-3 rounded-xl border cursor-pointer transition ${
+                      provider === 'hybrid'
+                        ? 'border-gold-500 bg-gold-50 text-espresso-950 shadow-gold'
+                        : 'border-beige-300 bg-beige-50/50 hover:bg-white text-espresso-800'
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-gold-700">⚡ Híbrido Auto</div>
+                    <div className="text-[10px] text-espresso-600 mt-1">Roteia pela skill ideal do Squad</div>
                   </div>
-                  <div className="text-[10px] text-blue-400 font-mono mt-3">Foco em velocidade e exploração</div>
                 </div>
               </div>
 
-              {/* Esforço de Raciocínio */}
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-white block mb-0.5">Nível de Esforço (/effort):</span>
-                  <span className="text-[11px] text-slate-400">Controla o budget de pensamento e validações</span>
-                </div>
-                <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs font-mono">
-                  <button
-                    type="button"
+              <div className="p-4 bg-white border border-beige-300 rounded-xl space-y-3 shadow-xs">
+                <label className="text-xs font-bold text-espresso-950 font-mono block">
+                  2. Nível de Esforço Cognitivo
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div
                     onClick={() => setEffort('high')}
-                    className={`px-3 py-1 rounded-md transition cursor-pointer ${
-                      effort === 'high' ? 'bg-slate-700 text-white font-bold' : 'text-slate-400'
+                    className={`p-3 rounded-xl border cursor-pointer transition ${
+                      effort === 'high'
+                        ? 'border-amber-500 bg-amber-50 text-espresso-950 shadow-xs'
+                        : 'border-beige-300 bg-beige-50/50 hover:bg-white text-espresso-800'
                     }`}
                   >
-                    high
-                  </button>
-                  <button
-                    type="button"
+                    <div className="font-bold text-xs text-amber-800">High Effort</div>
+                    <div className="text-[10px] text-espresso-600 mt-1">Foco rápido e direto</div>
+                  </div>
+
+                  <div
                     onClick={() => setEffort('ultracode')}
-                    className={`px-3 py-1 rounded-md transition cursor-pointer ${
-                      effort === 'ultracode' ? 'bg-violet-600 text-white font-bold' : 'text-slate-400'
+                    className={`p-3 rounded-xl border cursor-pointer transition ${
+                      effort === 'ultracode'
+                        ? 'border-gold-500 bg-gold-50 text-espresso-950 shadow-gold'
+                        : 'border-beige-300 bg-beige-50/50 hover:bg-white text-espresso-800'
                     }`}
                   >
-                    ultracode (xhigh)
-                  </button>
+                    <div className="font-bold text-xs text-gold-700">⚡ Ultracode Multi-Agent</div>
+                    <div className="text-[10px] text-espresso-600 mt-1">Harness máximo com DAG em worktrees</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Teto de Tokens */}
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center text-xs font-mono">
-                  <span className="text-slate-300 font-bold">Teto Financeiro de Segurança:</span>
-                  <span className="text-cyan-400 font-bold">{tokenBudget.toLocaleString()} tokens (~${(tokenBudget * 0.000003).toFixed(2)})</span>
+              <div className="p-4 bg-white border border-beige-300 rounded-xl space-y-3 shadow-xs">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-espresso-950 font-mono">
+                    3. Teto Orçamentário de Tokens
+                  </label>
+                  <span className="text-xs font-bold text-gold-700 font-mono bg-gold-100 px-2 py-0.5 rounded border border-gold-300">
+                    {tokenBudget.toLocaleString()} tokens
+                  </span>
                 </div>
                 <input
                   type="range"
                   min="10000"
-                  max="200000"
-                  step="10000"
+                  max="150000"
+                  step="5000"
                   value={tokenBudget}
                   onChange={(e) => setTokenBudget(Number(e.target.value))}
-                  className="w-full accent-violet-500 cursor-pointer"
+                  className="w-full accent-gold-500 cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                  <span>10k tokens (Rápido)</span>
-                  <span>50k (Padrão)</span>
-                  <span>200k (Lote Complexo)</span>
+                <div className="flex justify-between text-[10px] font-mono text-espresso-500">
+                  <span>10.000 (Rápido)</span>
+                  <span>50.000 (Padrão)</span>
+                  <span>150.000 (Extenso)</span>
                 </div>
               </div>
             </div>
           )}
 
+          {/* STEP 3: Revisão & Disparo */}
           {step === 3 && (
             <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Revisão do Pipeline Antes do Disparo
-              </h3>
+              <div className="p-4 bg-white border border-beige-300 rounded-xl space-y-3 shadow-xs">
+                <h3 className="text-xs font-bold text-espresso-950 font-mono uppercase tracking-wider">
+                  Resumo do Pipeline a Ser Gerado
+                </h3>
 
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 font-mono text-xs">
-                <div className="flex justify-between pb-2 border-b border-slate-900">
-                  <span className="text-slate-400">Objetivo:</span>
-                  <span className="text-slate-200 text-right font-bold truncate max-w-md">{prompt}</span>
-                </div>
-                <div className="flex justify-between pb-2 border-b border-slate-900">
-                  <span className="text-slate-400">Motor Selecionado:</span>
-                  <span className="text-violet-400 font-bold uppercase">{provider}</span>
-                </div>
-                <div className="flex justify-between pb-2 border-b border-slate-900">
-                  <span className="text-slate-400">Nível de Esforço:</span>
-                  <span className="text-slate-200 font-bold">{effort}</span>
-                </div>
-                <div className="flex justify-between pb-2 border-b border-slate-900">
-                  <span className="text-slate-400">Teto Financeiro:</span>
-                  <span className="text-cyan-400 font-bold">{tokenBudget.toLocaleString()} tokens</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Isolamento Git:</span>
-                  <span className="text-emerald-400 font-bold">Worktree Isolada + Zero-Copy Junctions</span>
-                </div>
-              </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="p-2.5 rounded-lg bg-beige-50 border border-beige-300 flex justify-between">
+                    <span className="text-espresso-600">Prompt:</span>
+                    <span className="font-bold text-espresso-950 truncate max-w-md">{prompt}</span>
+                  </div>
 
-              <div className="p-3 rounded-lg bg-violet-950/20 border border-violet-500/30 text-xs text-violet-300 font-mono">
-                Ao disparar, o Maestro compilará o DAG em sandbox node:vm, alocará a branch isolada e executará os Quality Gates determinísticos antes de solicitar merge.
+                  <div className="p-2.5 rounded-lg bg-beige-50 border border-beige-300 flex justify-between">
+                    <span className="text-espresso-600">Motor Selecionado:</span>
+                    <span className="font-bold text-gold-700 uppercase">{provider}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-beige-50 border border-beige-300 flex justify-between">
+                    <span className="text-espresso-600">Esforço Cognitivo:</span>
+                    <span className="font-bold text-gold-700 uppercase">{effort}</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-beige-50 border border-beige-300 flex justify-between">
+                    <span className="text-espresso-600">Orçamento Limite:</span>
+                    <span className="font-bold text-espresso-950">{tokenBudget.toLocaleString()} tokens</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gold-50/80 border border-gold-300 rounded-lg text-xs font-mono text-espresso-900 space-y-1">
+                  <div className="font-bold text-gold-800 flex items-center gap-1.5">
+                    <IconCheck className="w-3.5 h-3.5 text-gold-600" />
+                    <span>Garantias de Execução Determinística:</span>
+                  </div>
+                  <ul className="list-disc list-inside text-[11px] text-espresso-700 space-y-0.5 ml-1">
+                    <li>Ambiente isolado em Git Worktree com Zero-Copy Junctions</li>
+                    <li>Quality Gates de Zod Schema e testes unitários antes de qualquer merge</li>
+                    <li>Histórico ordenado gravado no Merkle Replay Cache</li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Modal Footer: Navegação entre Passos */}
-        <div className="p-4 border-t border-slate-800 bg-[#080b11] flex items-center justify-between">
-          {step > 1 ? (
-            <button
-              type="button"
-              onClick={() => setStep((s) => s - 1)}
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-mono border border-slate-800 transition cursor-pointer"
-            >
-              ← Voltar
-            </button>
-          ) : (
+        {/* Modal Footer Controls */}
+        <div className="p-4 border-t border-beige-300 bg-beige-100 flex items-center justify-between">
+          <div>
+            {step > 1 && (
+              <button
+                type="button"
+                onClick={() => setStep(step - 1)}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-beige-200 text-espresso-800 border border-beige-300 font-semibold text-xs transition cursor-pointer shadow-xs"
+              >
+                ← Voltar
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-mono border border-slate-800 transition cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-transparent hover:bg-beige-200 text-espresso-700 font-semibold text-xs transition cursor-pointer"
             >
               Cancelar
             </button>
-          )}
 
-          {step < 3 ? (
-            <button
-              type="button"
-              onClick={() => setStep((s) => s + 1)}
-              className="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition shadow-md shadow-violet-900/40 cursor-pointer"
-            >
-              Próximo Passo →
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleConfirmSubmit}
-              className="px-6 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-violet-600/50 flex items-center gap-2 cursor-pointer"
-            >
-              <IconZap className="w-4 h-4" />
-              <span>Disparar Workflow Agora</span>
-            </button>
-          )}
+            {step < 3 ? (
+              <button
+                type="button"
+                onClick={() => setStep(step + 1)}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold hover:shadow-gold-lg transition cursor-pointer border border-gold-300"
+              >
+                Avançar →
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                className="px-6 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold hover:shadow-gold-lg transition cursor-pointer flex items-center gap-1.5 border border-gold-300"
+              >
+                <IconZap className="w-4 h-4 text-espresso-950" />
+                <span>Disparar Workflow Autônomo</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

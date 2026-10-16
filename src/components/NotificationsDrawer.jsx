@@ -22,26 +22,26 @@ export default function NotificationsDrawer({
   const unreadCount = notifications.filter((n) => !n.acknowledged).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-[#090d15] border-l border-slate-800 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-espresso-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="w-full max-w-md bg-beige-50 border-l border-beige-300 h-full flex flex-col shadow-warm-lg animate-in slide-in-from-right duration-200 text-espresso-900">
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 bg-slate-900/70 flex items-center justify-between">
+        <div className="p-4 border-b border-beige-300 bg-beige-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold">
-              <IconShieldAlert className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-gold-100 border border-gold-300 text-gold-800 flex items-center justify-center font-bold shadow-xs">
+              <IconShieldAlert className="w-4 h-4 text-gold-700" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white font-mono">
+                <h3 className="text-sm font-extrabold text-espresso-950 font-mono">
                   Centro de Notificações
                 </h3>
                 {unreadCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-rose-500 text-white font-bold">
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold shadow-xs">
                     {unreadCount}
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 font-mono">
+              <p className="text-[10px] text-espresso-600 font-mono">
                 Rastreamento Determinístico HCS
               </p>
             </div>
@@ -52,7 +52,7 @@ export default function NotificationsDrawer({
               <button
                 type="button"
                 onClick={onClearAll}
-                className="text-[10px] text-slate-400 hover:text-slate-200 font-mono px-2 py-1 rounded bg-slate-800/60 hover:bg-slate-800 transition cursor-pointer"
+                className="text-[10px] text-espresso-600 hover:text-espresso-950 font-mono px-2 py-1 rounded bg-white border border-beige-300 hover:bg-beige-200 transition cursor-pointer shadow-xs"
               >
                 Limpar Todas
               </button>
@@ -60,7 +60,7 @@ export default function NotificationsDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer text-xs"
+              className="w-7 h-7 rounded-lg bg-white border border-beige-300 hover:bg-beige-200 text-espresso-600 hover:text-espresso-950 flex items-center justify-center transition cursor-pointer text-xs shadow-xs"
             >
               ✕
             </button>
@@ -68,36 +68,36 @@ export default function NotificationsDrawer({
         </div>
 
         {/* List of Notifications */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-beige-50">
           {notifications.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center text-slate-500 font-mono text-xs">
-              <IconCheck className="w-8 h-8 text-slate-700 mb-2" />
+            <div className="h-64 flex flex-col items-center justify-center text-espresso-400 font-mono text-xs">
+              <IconCheck className="w-8 h-8 text-espresso-300 mb-2" />
               <span>Nenhuma notificação no momento.</span>
             </div>
           ) : (
             notifications.map((item) => {
               const badgeStyle =
                 item.severity === 'critical'
-                  ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
                   : item.severity === 'warning'
-                  ? 'bg-amber-950/80 text-amber-300 border-amber-800'
-                  : 'bg-cyan-950/80 text-cyan-300 border-cyan-800';
+                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                  : 'bg-gold-100 text-gold-800 border-gold-300';
 
               return (
                 <div
                   key={item.id}
-                  className={`p-3 rounded-xl border text-xs transition space-y-2 ${
+                  className={`p-3.5 rounded-xl border text-xs transition space-y-2.5 ${
                     item.acknowledged
-                      ? 'bg-slate-900/40 border-slate-800/80 opacity-70'
-                      : 'bg-slate-900/90 border-slate-700/80 shadow-md'
+                      ? 'bg-beige-100/70 border-beige-300 opacity-75'
+                      : 'bg-white border-beige-300 shadow-warm'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono border font-bold ${badgeStyle}`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono border font-extrabold ${badgeStyle}`}>
                         {item.code}
                       </span>
-                      <span className="font-semibold text-slate-200 font-mono text-xs">
+                      <span className="font-extrabold text-espresso-950 font-mono text-xs">
                         {item.title}
                       </span>
                     </div>
@@ -106,7 +106,7 @@ export default function NotificationsDrawer({
                       <button
                         type="button"
                         onClick={() => onAcknowledge(item.id)}
-                        className="text-[10px] text-slate-400 hover:text-white font-mono whitespace-nowrap cursor-pointer"
+                        className="text-[10px] text-espresso-500 hover:text-espresso-950 font-mono whitespace-nowrap cursor-pointer font-bold"
                         title="Marcar como lida"
                       >
                         ✓ Lida
@@ -114,36 +114,36 @@ export default function NotificationsDrawer({
                     )}
                   </div>
 
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                  <p className="text-[11px] text-espresso-700 leading-relaxed">
                     {item.message}
                   </p>
 
                   {/* Source Trace Metadata */}
                   {item.source_trace && (
-                    <div className="p-2 rounded bg-slate-950/70 border border-slate-800/70 text-[10px] font-mono text-slate-400 space-y-0.5">
+                    <div className="p-2.5 rounded-lg bg-beige-50 border border-beige-300 text-[10px] font-mono text-espresso-600 space-y-0.5">
                       {item.source_trace.agent_id && (
-                        <div>Agente: <strong className="text-slate-300">{item.source_trace.agent_id}</strong></div>
+                        <div>Agente: <strong className="text-espresso-950">{item.source_trace.agent_id}</strong></div>
                       )}
                       {item.source_trace.worktree_path && (
-                        <div>Worktree: <span className="text-cyan-400">{item.source_trace.worktree_path}</span></div>
+                        <div>Worktree: <span className="text-gold-700 font-bold">{item.source_trace.worktree_path}</span></div>
                       )}
                       {item.source_trace.file_target && (
-                        <div>Arquivo: <span className="text-violet-400">{item.source_trace.file_target}</span></div>
+                        <div>Arquivo: <span className="text-espresso-950 font-bold">{item.source_trace.file_target}</span></div>
                       )}
                     </div>
                   )}
 
                   {/* Deep Linking Actions */}
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                  <div className="pt-2 border-t border-beige-200 flex items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => {
                         if (onFollowTrace) onFollowTrace(item);
                         onClose();
                       }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-mono font-semibold transition cursor-pointer flex items-center gap-1.5"
+                      className="px-2.5 py-1 rounded-lg bg-beige-100 hover:bg-beige-200 text-espresso-800 text-[10px] font-mono font-bold border border-beige-300 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
                     >
-                      <IconTerminal className="w-3 h-3 text-cyan-400" />
+                      <IconTerminal className="w-3 h-3 text-gold-700" />
                       <span>Ir para o Agente</span>
                     </button>
 
@@ -154,9 +154,9 @@ export default function NotificationsDrawer({
                           if (onOpenImprovement) onOpenImprovement(item.improvement_id);
                           onClose();
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900 border border-rose-800/60 text-rose-300 text-[10px] font-mono font-semibold transition cursor-pointer flex items-center gap-1.5"
+                        className="px-2.5 py-1 rounded-lg bg-gold-100 hover:bg-gold-200 border border-gold-300 text-gold-900 text-[10px] font-mono font-extrabold transition cursor-pointer flex items-center gap-1.5 shadow-xs"
                       >
-                        <IconZap className="w-3 h-3 text-rose-400" />
+                        <IconZap className="w-3 h-3 text-gold-700" />
                         <span>Auto-Heal CloudShell</span>
                       </button>
                     )}
