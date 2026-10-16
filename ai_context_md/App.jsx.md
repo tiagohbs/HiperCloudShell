@@ -1,7 +1,7 @@
 # Frontend React: App Cockpit (src/App.jsx)
 
 > **Arquivo de Origem:** src/App.jsx  
-> **Tamanho:** 2652 linhas (119.3 KB)  
+> **Tamanho:** 2696 linhas (122.1 KB)  
 
 `javascript
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -518,6 +518,7 @@ export default function App() {
   // Estados Squad Catalog (Overclock.sh Harness)
   const [squadCatalog, setSquadCatalog] = useState(DEFAULT_SQUAD_CATALOG);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [showSquadsArsenal, setShowSquadsArsenal] = useState(true);
   const [providerMaxEffort, setProviderMaxEffort] = useState({ claude: 'xhigh', antigravity: 'high' });
 
   // Estados Ultracode Workflows & Hot-Takeover
@@ -1007,6 +1008,7 @@ export default function App() {
     );
     setShowNotificationsDrawer(false);
     setActiveView('self-improvement');
+    setShowSquadsArsenal(false);
 
     if (notif.improvement_id && improvements[notif.improvement_id]) {
       setSelectedImprovementId(notif.improvement_id);
@@ -1264,11 +1266,11 @@ export default function App() {
   const taskList = useMemo(() => Object.values(blackboard.tasks), [blackboard.tasks]);
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-sans selection:bg-violet-500/30">
+    <div className="h-screen w-screen bg-[#07090e] text-slate-100 flex flex-col font-sans selection:bg-violet-500/30 overflow-hidden">
       {/* ====================================================================
           TOPBAR: NAVEGACAO ENTRE GRID E ULTRACODE MISSION CONTROL
       ==================================================================== */}
-      <header className="border-b border-slate-800/80 bg-[#0b0f17]/95 backdrop-blur px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+      <header className="flex-shrink-0 border-b border-slate-800/80 bg-[#0b0f17]/95 backdrop-blur px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 z-30">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 via-fuchsia-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20 font-bold text-white text-sm">
             H
@@ -1312,7 +1314,10 @@ export default function App() {
               <IconZap /> /workflows ({Object.keys(workflowRuns).length})
             </button>
             <button
-              onClick={() => setActiveView('pixel-forge')}
+              onClick={() => {
+                setActiveView('pixel-forge');
+                setShowSquadsArsenal(false);
+              }}
               className={`px-3 py-1 rounded-md transition text-xs font-medium flex items-center gap-1.5 ${
                 activeView === 'pixel-forge'
                   ? 'bg-emerald-600/30 text-emerald-300 font-semibold border border-emerald-500/40 shadow-sm'
@@ -1322,7 +1327,10 @@ export default function App() {
               <IconPalette /> Pixel Forge 3D
             </button>
             <button
-              onClick={() => setActiveView('self-improvement')}
+              onClick={() => {
+                setActiveView('self-improvement');
+                setShowSquadsArsenal(false);
+              }}
               className={`px-3 py-1 rounded-md transition text-xs font-medium flex items-center gap-1.5 ${
                 activeView === 'self-improvement'
                   ? 'bg-rose-600/30 text-rose-300 font-semibold border border-rose-500/40 shadow-sm'
@@ -1410,7 +1418,7 @@ export default function App() {
           DRAWER / OVERLAY: CENTRO DE NOTIFICAÇÕES RASTREÁVEIS
       ==================================================================== */}
       {showNotificationsDrawer && (
-        <div className="border-b border-slate-800 bg-[#090d14]/98 backdrop-blur p-4 z-40 shadow-2xl animate-in slide-in-from-top-2 duration-150">
+        <div className="flex-shrink-0 border-b border-slate-800 bg-[#090d14]/98 backdrop-blur p-4 z-40 shadow-2xl animate-in slide-in-from-top-2 duration-150 max-h-96 overflow-y-auto">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800/80">
             <div className="flex items-center gap-2">
               <span className="text-amber-400 font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider">
@@ -1502,136 +1510,171 @@ export default function App() {
       )}
 
       {/* ====================================================================
-          BARRA DE PROMPT ULTRACODE COM DESTAQUE VIOLETA E ATALHO ALT+W
+          ÁREA PRINCIPAL COM SCROLL FLUIDO (SECTIONS + VIEWS ATIVAS)
       ==================================================================== */}
-      <section className="border-b border-slate-800/80 bg-[#0a0d14] px-4 py-3">
-        <form onSubmit={handlePromptSubmit}>
-          <div
-            className={`rounded-xl border p-2.5 transition flex flex-col gap-2 ${
-              isUltracodeArmed
-                ? 'border-violet-500/80 bg-violet-950/20 shadow-lg shadow-violet-950/30'
-                : 'border-slate-800 bg-slate-900/90'
-            }`}
-          >
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-mono flex items-center gap-1.5">
-                {isUltracodeArmed ? (
-                  <span className="text-violet-400 font-semibold flex items-center gap-1">
-                    <IconZap /> Modo Ultracode armado: planejará um Dynamic Workflow em JavaScript Sandbox
-                  </span>
-                ) : (
-                  <span className="text-slate-400">
-                    Digite "ultracode:" ou use /effort ultracode para orquestracao multiagente
+      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+        {/* ====================================================================
+            BARRA DE PROMPT ULTRACODE COM DESTAQUE VIOLETA E ATALHO ALT+W
+        ==================================================================== */}
+        <section className="flex-shrink-0 border-b border-slate-800/80 bg-[#0a0d14] px-4 py-3">
+          <form onSubmit={handlePromptSubmit}>
+            <div
+              className={`rounded-xl border p-2.5 transition flex flex-col gap-2 ${
+                isUltracodeArmed
+                  ? 'border-violet-500/80 bg-violet-950/20 shadow-lg shadow-violet-950/30'
+                  : 'border-slate-800 bg-slate-900/90'
+              }`}
+            >
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-mono flex items-center gap-1.5">
+                  {isUltracodeArmed ? (
+                    <span className="text-violet-400 font-semibold flex items-center gap-1">
+                      <IconZap /> Modo Ultracode armado: planejará um Dynamic Workflow em JavaScript Sandbox
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">
+                      Digite "ultracode:" ou use /effort ultracode para orquestracao multiagente
+                    </span>
+                  )}
+                </span>
+                {hasUltracodeKeyword && (
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-violet-900/60 text-violet-200 border border-violet-500/30 font-mono">
+                    Alt+W para descartar gatilho
                   </span>
                 )}
-              </span>
-              {hasUltracodeKeyword && (
-                <span className="text-[10px] px-2 py-0.5 rounded bg-violet-900/60 text-violet-200 border border-violet-500/30 font-mono">
-                  Alt+W para descartar gatilho
-                </span>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => {
-                  setPrompt(e.target.value);
-                  setDismissedKeyword(false);
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="Ex: ultracode: auditar todas as rotas da API e refatorar em worktrees"
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-100 focus:outline-none focus:border-violet-500"
-              />
-              <button
-                type="submit"
-                className="px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-semibold transition text-white shadow-md shadow-violet-600/30"
-              >
-                Executar Workflow
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      {/* ====================================================================
-          ARSENAL DE SQUADS & TEMPLATES (HARNESS MONTADO)
-      ==================================================================== */}
-      <section className="border-b border-slate-800 bg-[#080b11] px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              🚀 Arsenal de Squads & Templates (Harness Montado)
-            </h2>
-            <p className="text-xs text-slate-400">
-              Escolha pelo resultado: cada Squad combina o CLI certo, a skill certa e o teto de esforço ideal.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1 rounded-md text-xs transition ${
-                  selectedCategory === cat
-                    ? 'bg-violet-600 text-white font-semibold'
-                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {visibleSquads.map((squad) => (
-            <div
-              key={squad.slug}
-              className="p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-violet-500/60 transition flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-400">
-                    {squad.category}
-                  </span>
-                  <code className="text-[10px] text-slate-500">{squad.command}</code>
-                </div>
-                <h3 className="text-xs font-bold text-slate-100 mb-1">{squad.title}</h3>
-                <p className="text-[11px] text-slate-400 line-clamp-3 mb-3">{squad.description}</p>
               </div>
 
-              <div>
-                <div className="flex items-center gap-1.5 mb-2 text-[10px]">
-                  <span className="px-1.5 py-0.5 rounded bg-orange-950/80 text-orange-300 border border-orange-800/60 font-mono">
-                    Claude: {squad.recommendedEffort?.claude}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60 font-mono">
-                    AGY: {squad.recommendedEffort?.antigravity}
-                  </span>
-                </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => {
+                    setPrompt(e.target.value);
+                    setDismissedKeyword(false);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ex: ultracode: auditar todas as rotas da API e refatorar em worktrees"
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-100 focus:outline-none focus:border-violet-500"
+                />
                 <button
-                  type="button"
-                  onClick={() => handleSelectSquad(squad)}
-                  className="w-full py-1.5 rounded bg-slate-800 hover:bg-violet-600 text-xs font-semibold text-white transition"
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-semibold transition text-white shadow-md shadow-violet-600/30"
                 >
-                  Montar Harness & Inspecionar
+                  Executar Workflow
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </form>
+        </section>
+
+        {/* ====================================================================
+            ARSENAL DE SQUADS & TEMPLATES (HARNESS MONTADO) - RECOLHÍVEL
+        ==================================================================== */}
+        {showSquadsArsenal ? (
+          <section className="flex-shrink-0 border-b border-slate-800 bg-[#080b11] px-4 py-3 transition-all">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                  🚀 Arsenal de Squads & Templates (Harness Montado)
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Escolha pelo resultado: cada Squad combina o CLI certo, a skill certa e o teto de esforço ideal.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-2.5 py-1 rounded-md text-xs transition ${
+                        selectedCategory === cat
+                          ? 'bg-violet-600 text-white font-semibold'
+                          : 'bg-slate-950 text-slate-400 border border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSquadsArsenal(false)}
+                  className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-mono border border-slate-800 transition flex items-center gap-1"
+                  title="Recolher Arsenal para expandir o espaço de trabalho"
+                >
+                  ▲ Recolher
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto pr-1">
+              {visibleSquads.map((squad) => (
+                <div
+                  key={squad.slug}
+                  className="p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-violet-500/60 transition flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-400">
+                        {squad.category}
+                      </span>
+                      <code className="text-[10px] text-slate-500">{squad.command}</code>
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-100 mb-1">{squad.title}</h3>
+                    <p className="text-[11px] text-slate-400 line-clamp-3 mb-3">{squad.description}</p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-orange-950/80 text-orange-300 border border-orange-800/60 font-mono">
+                        Claude: {squad.recommendedEffort?.claude}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60 font-mono">
+                        AGY: {squad.recommendedEffort?.antigravity}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSquad(squad)}
+                      className="w-full py-1.5 rounded bg-slate-800 hover:bg-violet-600 text-xs font-semibold text-white transition"
+                    >
+                      Montar Harness & Inspecionar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="flex-shrink-0 border-b border-slate-800/80 bg-[#080b11] px-4 py-2 flex items-center justify-between text-xs transition-all">
+            <div className="flex items-center gap-2">
+              <span className="text-violet-400 font-bold text-xs flex items-center gap-1.5">
+                🚀 Arsenal de Squads (8 templates disponíveis)
+              </span>
+              <span className="text-[11px] text-slate-500 hidden sm:inline">
+                • Harnesses otimizados para Claude Code & Antigravity
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSquadsArsenal(true)}
+              className="px-3 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-violet-300 text-xs font-mono border border-slate-800 transition flex items-center gap-1.5"
+            >
+              ▼ Expandir Arsenal de Squads
+            </button>
+          </section>
+        )}
 
       {/* ====================================================================
           CORPO PRINCIPAL: VISAO 1 (MISSION CONTROL) OU VISAO 2 (GRID PTY)
       ==================================================================== */}
       {activeView === 'workflows' ? (
         /* MISSION CONTROL ULTRACODE (/workflows) */
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
+        <div className="flex-1 min-h-[550px] grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-y-auto">
           {/* Coluna 1: Lista de Execuções */}
           <div className="bg-[#0b0f17] border border-slate-800 rounded-xl p-4 flex flex-col overflow-y-auto">
             <h2 className="text-xs font-bold uppercase tracking-wider text-violet-400 mb-3 flex items-center justify-between">
@@ -1675,7 +1718,7 @@ export default function App() {
           </div>
 
           {/* Coluna 2 e 3: Editor de Script e Subagentes */}
-          <div className="lg:col-span-2 bg-[#0b0f17] border border-slate-800 rounded-xl p-4 flex flex-col overflow-hidden">
+          <div className="lg:col-span-2 bg-[#0b0f17] border border-slate-800 rounded-xl p-4 flex flex-col overflow-y-auto min-h-[480px]">
             {!activeRun ? (
               <div className="text-xs text-slate-500 m-auto font-mono">
                 Selecione ou dispare uma execucao de Dynamic Workflow para inspecionar.
@@ -1897,7 +1940,7 @@ export default function App() {
         </div>
       ) : activeView === 'pixel-forge' ? (
         /* PIXEL FORGE 3D STUDIO (8º SQUAD CANÔNICO) */
-        <div className="flex-1 flex flex-col overflow-hidden bg-[#06080c]">
+        <div className="flex-1 min-h-[550px] flex flex-col overflow-y-auto bg-[#06080c]">
           {/* Header Bar da Forja */}
           <div className="border-b border-slate-800 bg-[#090d14] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -2324,7 +2367,7 @@ export default function App() {
         </div>
       ) : activeView === 'self-improvement' ? (
         /* SISTEMA DE AUTO-MELHORIA CONTÍNUA (CLOUDSHELL ADE) */
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-hidden bg-[#06080c]">
+        <div className="flex-1 min-h-[550px] grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-y-auto bg-[#06080c]">
           {/* Coluna Esquerda (5/12): Configurações do Motor, Gatilhos e Lista de Tarefas */}
           <div className="lg:col-span-5 flex flex-col gap-4 overflow-y-auto">
             {/* Bloco 1: Painel de Controle do Motor de Auto-Melhoria */}
@@ -2492,7 +2535,7 @@ export default function App() {
           </div>
 
           {/* Coluna Direita (7/12): Inspeção, Diagnóstico e Terminal CloudShell Integrado */}
-          <div className="lg:col-span-7 flex flex-col gap-4 overflow-hidden">
+          <div className="lg:col-span-7 flex flex-col gap-4 overflow-y-auto min-h-[500px]">
             {selectedImprovementId && improvements[selectedImprovementId] ? (
               (() => {
                 const activeImp = improvements[selectedImprovementId];
@@ -2566,7 +2609,7 @@ export default function App() {
                     </div>
 
                     {/* Terminal CloudShell Interativo do Agente de Auto-Melhoria */}
-                    <div className="flex-1 flex flex-col bg-[#05070a] border border-slate-800 rounded-xl p-3 font-mono text-xs overflow-hidden">
+                    <div className="flex-1 min-h-[300px] flex flex-col bg-[#05070a] border border-slate-800 rounded-xl p-3 font-mono text-xs overflow-hidden">
                       <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800 pb-2 mb-2">
                         <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
                           <IconCloud /> CloudShell Worktree Terminal ({activeImp.worktree_path})
@@ -2574,7 +2617,7 @@ export default function App() {
                         <span>Zero-Copy Junction Ativa • Buffer Sincronizado</span>
                       </div>
 
-                      <div className="flex-1 overflow-y-auto space-y-1 text-[11px] text-emerald-300 mb-2">
+                      <div className="flex-1 min-h-[140px] max-h-[380px] overflow-y-auto space-y-1 text-[11px] text-emerald-300 mb-2 pr-1">
                         {logs.map((line, idx) => (
                           <div key={idx}>{line}</div>
                         ))}
@@ -2608,9 +2651,9 @@ export default function App() {
         </div>
       ) : (
         /* GRID MULTI-TERMINAL CLASSICO DO MAESTRO PTY */
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        <div className="flex-1 min-h-[550px] grid grid-cols-1 lg:grid-cols-12 overflow-y-auto">
           <div
-            className={`lg:col-span-7 p-3 grid gap-3 overflow-y-auto ${
+            className={`lg:col-span-7 p-3 grid gap-3 overflow-y-auto min-h-[400px] ${
               gridLayout === '1x1'
                 ? 'grid-cols-1'
                 : gridLayout === '3x2'
@@ -2642,7 +2685,7 @@ export default function App() {
             ))}
           </div>
 
-          <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-800 bg-[#090d14] p-4 overflow-y-auto">
+          <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-800 bg-[#090d14] p-4 overflow-y-auto min-h-[400px]">
             <h2 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">
               Blackboard JSON (.maestro/blackboard.json)
             </h2>
@@ -2652,6 +2695,7 @@ export default function App() {
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }
