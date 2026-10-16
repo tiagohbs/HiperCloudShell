@@ -118,6 +118,18 @@ export class BlackboardManager extends EventEmitter {
     return task;
   }
 
+  updateImprovementTask(id, patch) {
+    if (!this.state.selfImprovement) this.initSelfImprovementSystem();
+    const task = this.state.selfImprovement.improvements[id];
+    if (task) {
+      Object.assign(task, patch, { updatedAt: Date.now() });
+      this.persist();
+      this.emit('improvement:update', task);
+      return task;
+    }
+    return null;
+  }
+
   // ==========================================================================
   // METODOS ULTRACODE / DYNAMIC WORKFLOWS
   // ==========================================================================

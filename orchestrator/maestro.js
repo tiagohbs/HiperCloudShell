@@ -975,11 +975,14 @@ return await agent(
         label: `self-healer:${notification.code}`
       });
 
-      impTask.status = 'validating_gate';
-      impTask.diagnosis = typeof healResult.output === 'string'
+      const diagnosis = typeof healResult.output === 'string'
         ? healResult.output.slice(0, 500)
         : JSON.stringify(healResult.output).slice(0, 500);
-      impTask.updatedAt = Date.now();
+
+      this.blackboard.updateImprovementTask(impId, {
+        status: 'validating_gate',
+        diagnosis
+      });
       this.sendIpc('ultracode:improvement-update', impTask);
 
       // 3. Valida no CloudShell / Gate Determinístico antes de commitar a melhoria
@@ -992,12 +995,11 @@ return await agent(
           wt.worktreePath,
           `self-improvement(${notification.code}): auto-healed by ${engine}`
         );
-        impTask.status = 'ready_to_merge';
+        this.blackboard.updateImprovementTask(impId, { status: 'ready_to_merge' });
       } else {
-        impTask.status = 'needs_human_review';
+        this.blackboard.updateImprovementTask(impId, { status: 'needs_human_review' });
       }
 
-      impTask.updatedAt = Date.now();
       this.sendIpc('ultracode:improvement-update', impTask);
 
       // Emite notificação de melhoria concluída com link para o Sistema de Melhoria
@@ -1018,6 +1020,10 @@ return await agent(
 
       return impTask;
     } catch (err) {
+      this.blackboard.updateImprovementTask(impId, {
+        status: 'failed',
+        error: err.message
+      });
       impTask.status = 'failed';
       impTask.error = err.message;
       this.sendIpc('ultracode:improvement-update', impTask);

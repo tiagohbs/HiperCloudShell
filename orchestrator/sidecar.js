@@ -27,6 +27,14 @@ blackboard.on('workflow:update', (runSnapshot) => {
   console.log(JSON.stringify({ type: 'workflow-update', data: runSnapshot }));
 });
 
+blackboard.on('system:notification', (notification) => {
+  console.log(JSON.stringify({ type: 'system-notification', data: notification }));
+});
+
+blackboard.on('improvement:update', (task) => {
+  console.log(JSON.stringify({ type: 'improvement-update', data: task }));
+});
+
 llmAdapter.on('agent:stream', (streamEvent) => {
   console.log(JSON.stringify({ type: 'agent-stream', data: streamEvent }));
 });
@@ -126,6 +134,17 @@ async function main() {
         }
         maestro.executeWorkflowRun(runId, { args: runArgs, maxTokensPerRun });
         console.log(JSON.stringify({ id: msg.id, type: 'approve-response', data: { started: true, runId } }));
+      } else if (msg.cmd === 'trigger-self-improvement') {
+        const { notification, goal, engineOverride, targetFiles } = msg;
+        const notif = notification || {
+          code: `HCS-IMP-${Date.now().toString().slice(-4)}`,
+          kind: 'improvement',
+          title: 'Manual Improvement Trigger',
+          message: goal || 'Melhoria disparada manualmente',
+          sourceTrace: { targetFiles }
+        };
+        const task = await maestro.triggerContinuousSelfImprovement(notif);
+        console.log(JSON.stringify({ id: msg.id, type: 'trigger-improvement-response', data: task }));
       }
     } catch (err) {
       console.log(JSON.stringify({ type: 'error', error: err.message }));

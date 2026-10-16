@@ -1,11 +1,9 @@
-# Orquestrador Node.js: Sidecar Process (`orchestrator/sidecar.js`)
+# Orquestrador Node.js: Sidecar Runner (orchestrator/sidecar.js)
 
-> **Arquivo de Origem:** `orchestrator/sidecar.js`  
-> **Tamanho:** 140 linhas (4.9 KB)  
-> **Linguagem:** JavaScript (ESM / Node.js)  
-> **Descrição:** Processo Sidecar Node.js do HiperCloudShell. Faz a ponte entre o runtime nativo Tauri v2 e o motor Maestro (`maestro.js`). Trata comandos via CLI (`--detect`, `--plan`, `--run`) ou interativo via `process.stdin` (`submit-prompt`, `approve-run`), e transmite eventos de telemetria em tempo real no formato NDJSON pelo `process.stdout` para o frontend.
+> **Arquivo de Origem:** orchestrator/sidecar.js  
+> **Tamanho:** 159 linhas (5.6 KB)  
 
-```javascript
+`javascript
 // orchestrator/sidecar.js
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +31,14 @@ const maestro = new MaestroOrchestrator({
 // Envia eventos para o stdout em formato NDJSON para o Tauri ler
 blackboard.on('workflow:update', (runSnapshot) => {
   console.log(JSON.stringify({ type: 'workflow-update', data: runSnapshot }));
+});
+
+blackboard.on('system:notification', (notification) => {
+  console.log(JSON.stringify({ type: 'system-notification', data: notification }));
+});
+
+blackboard.on('improvement:update', (task) => {
+  console.log(JSON.stringify({ type: 'improvement-update', data: task }));
 });
 
 llmAdapter.on('agent:stream', (streamEvent) => {
@@ -134,6 +140,17 @@ async function main() {
         }
         maestro.executeWorkflowRun(runId, { args: runArgs, maxTokensPerRun });
         console.log(JSON.stringify({ id: msg.id, type: 'approve-response', data: { started: true, runId } }));
+      } else if (msg.cmd === 'trigger-self-improvement') {
+        const { notification, goal, engineOverride, targetFiles } = msg;
+        const notif = notification || {
+          code: `HCS-IMP-${Date.now().toString().slice(-4)}`,
+          kind: 'improvement',
+          title: 'Manual Improvement Trigger',
+          message: goal || 'Melhoria disparada manualmente',
+          sourceTrace: { targetFiles }
+        };
+        const task = await maestro.triggerContinuousSelfImprovement(notif);
+        console.log(JSON.stringify({ id: msg.id, type: 'trigger-improvement-response', data: task }));
       }
     } catch (err) {
       console.log(JSON.stringify({ type: 'error', error: err.message }));
@@ -145,4 +162,4 @@ main().catch((err) => {
   console.error(JSON.stringify({ type: 'fatal-error', error: err.message }));
   process.exit(1);
 });
-```
+`

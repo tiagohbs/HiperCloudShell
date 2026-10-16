@@ -1,10 +1,11 @@
+use crate::blackboard::{NotificationSourceTrace, SystemNotification};
 use crate::gates::UltracodeGates;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -133,6 +134,7 @@ impl DualEngineAdapter {
         phase: Option<String>,
         app_handle: AppHandle,
     ) -> Result<AgentRunResult, String> {
+        let start_time = Instant::now();
         let target_provider = self.resolve_provider(provider.as_deref(), phase.as_deref()).await;
         let requested_effort = effort.unwrap_or_else(|| "high".to_string());
         let effective_effort = self.get_effective_effort(&target_provider, &requested_effort).await;
@@ -190,14 +192,41 @@ impl DualEngineAdapter {
         cmd.stderr(Stdio::piped());
         cmd.env("FORCE_COLOR", "0");
 
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| format!("Falha ao iniciar processo '{}': {}", binary_name, e))?;
+        let agent_label = label.unwrap_or_else(|| "subagent".to_string());
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                let err_msg = format!("Falha ao iniciar processo '{}': {}", binary_name, e);
+                let notif = SystemNotification {
+                    id: format!("notif_err_{}", chrono::Utc::now().timestamp_millis()),
+                    code: "HCS-ERR-SPAWN".to_string(),
+                    kind: "error".to_string(),
+                    severity: "critical".to_string(),
+                    title: format!("Falha ao iniciar '{}'", binary_name),
+                    message: err_msg.clone(),
+                    timestamp: chrono::Utc::now().timestamp_millis(),
+                    acknowledged: false,
+                    source_trace: NotificationSourceTrace {
+                        run_id: None,
+                        agent_id: agent_id.clone(),
+                        term_id: None,
+                        pane_id: None,
+                        conversation_id: resume_id.clone(),
+                        provider: Some(target_provider.clone()),
+                        worktree_path: cwd.clone(),
+                        file_target: None,
+                        line_hint: None,
+                    },
+                    improvement_id: None,
+                };
+                let _ = app_handle.emit("ultracode:system-notification", &notif);
+                return Err(err_msg);
+            }
+        };
 
         let stdout = child.stdout.take().ok_or("Falha ao capturar stdout")?;
         let mut reader = BufReader::new(stdout).lines();
 
-        let agent_label = label.unwrap_or_else(|| "subagent".to_string());
         let mut full_output = String::new();
         let mut total_tokens = 0usize;
         let mut last_conversation_id = resume_id.clone();
@@ -261,8 +290,59 @@ impl DualEngineAdapter {
             }
         }
 
+        let elapsed_ms = start_time.elapsed().as_millis() as u64;
+        if elapsed_ms > 45_000 {
+            let notif = SystemNotification {
+                id: format!("notif_btl_{}", chrono::Utc::now().timestamp_millis()),
+                code: format!("HCS-BTL-{}", &target_provider[..target_provider.len().min(3)].to_uppercase()),
+                kind: "bottleneck".to_string(),
+                severity: "warning".to_string(),
+                title: format!("Gargalo de Latência Detectado ({:.1}s)", elapsed_ms as f64 / 1000.0),
+                message: format!("O agente '{}' ({}) excedeu o limite de 45s (tempo total: {}ms).", agent_label, target_provider, elapsed_ms),
+                timestamp: chrono::Utc::now().timestamp_millis(),
+                acknowledged: false,
+                source_trace: NotificationSourceTrace {
+                    run_id: None,
+                    agent_id: agent_id.clone(),
+                    term_id: None,
+                    pane_id: None,
+                    conversation_id: last_conversation_id.clone(),
+                    provider: Some(target_provider.clone()),
+                    worktree_path: cwd.clone(),
+                    file_target: None,
+                    line_hint: None,
+                },
+                improvement_id: None,
+            };
+            let _ = app_handle.emit("ultracode:system-notification", &notif);
+        }
+
         let status = child.wait().await.map_err(|e| e.to_string())?;
         if !status.success() && full_output.trim().is_empty() {
+            let code_num = status.code().unwrap_or(1);
+            let notif = SystemNotification {
+                id: format!("notif_err_{}", chrono::Utc::now().timestamp_millis()),
+                code: format!("HCS-ERR-{}", code_num),
+                kind: "error".to_string(),
+                severity: "critical".to_string(),
+                title: format!("Erro no Agente '{}'", agent_label),
+                message: format!("O processo '{}' encerrou com status de falha {}.", binary_name, status),
+                timestamp: chrono::Utc::now().timestamp_millis(),
+                acknowledged: false,
+                source_trace: NotificationSourceTrace {
+                    run_id: None,
+                    agent_id: agent_id.clone(),
+                    term_id: None,
+                    pane_id: None,
+                    conversation_id: last_conversation_id.clone(),
+                    provider: Some(target_provider.clone()),
+                    worktree_path: cwd.clone(),
+                    file_target: None,
+                    line_hint: None,
+                },
+                improvement_id: None,
+            };
+            let _ = app_handle.emit("ultracode:system-notification", &notif);
             return Err(format!("Processo encerrou com status {}", status));
         }
 

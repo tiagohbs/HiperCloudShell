@@ -454,7 +454,7 @@ const DEFAULT_SQUAD_CATALOG = [
 // COMPONENTE PRINCIPAL
 // ============================================================================
 export default function App() {
-  const [activeView, setActiveView] = useState('grid'); // 'grid' | 'workflows' | 'pixel-forge'
+  const [activeView, setActiveView] = useState('grid'); // 'grid' | 'workflows' | 'pixel-forge' | 'self-improvement'
   const [prompt, setPrompt] = useState('ultracode: auditar integridade de worktrees e sincronizacao');
   const [effort, setEffort] = useState('ultracode'); // 'high' | 'ultracode'
   const [provider, setProvider] = useState('hybrid'); // 'claude' | 'antigravity' | 'hybrid'
@@ -522,6 +522,110 @@ export default function App() {
   const [ptyBuffer, setPtyBuffer] = useState('');
   const [ptyInput, setPtyInput] = useState('');
   const [maxTokensBudget, setMaxTokensBudget] = useState(50000); // Teto financeiro padrão: 50k tokens
+
+  // Configuração do Sistema de Auto-Melhoria Contínua
+  const [selfImpConfig, setSelfImpConfig] = useState({
+    enabled: true,
+    continuousMode: true,
+    preferredEngine: 'hybrid', // 'claude' | 'antigravity' | 'hybrid'
+    autoApplyCloudshell: true,
+    bottleneckThresholdMs: 45000
+  });
+
+  // Centro de Notificações Rastreáveis (Erros, Gargalos e Melhorias)
+  const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 'notif_init_1',
+      code: 'HCS-BTL-104',
+      kind: 'bottleneck',
+      severity: 'warning',
+      title: 'Gargalo de Sincronização Detectado em T2_BACKEND',
+      message: 'Execução de syncScopeToCloud levou 48.4s (limite: 45s) no painel pane-2.',
+      timestamp: Date.now() - 180000,
+      acknowledged: false,
+      source_trace: {
+        pane_id: 'pane-2',
+        term_id: 'pane-2',
+        agent_id: 'T2_BACKEND',
+        provider: 'claude',
+        worktree_path: '.worktrees/t2-backend',
+        file_target: 'electron/mirror.js'
+      },
+      improvement_id: 'imp_demo_1'
+    },
+    {
+      id: 'notif_init_2',
+      code: 'HCS-ERR-402',
+      kind: 'error',
+      severity: 'critical',
+      title: 'Falha de Validação de Schema no Subagente',
+      message: 'JSON truncado durante auditoria de rotas no worktree isolado.',
+      timestamp: Date.now() - 95000,
+      acknowledged: false,
+      source_trace: {
+        pane_id: 'pane-1',
+        term_id: 'pane-1',
+        agent_id: 'T1_ARCHITECT',
+        provider: 'antigravity',
+        worktree_path: '.worktrees/t1-architect',
+        file_target: 'src/contracts/sync.schema.js'
+      },
+      improvement_id: null
+    },
+    {
+      id: 'notif_init_3',
+      code: 'HCS-IMP-201',
+      kind: 'improvement',
+      severity: 'info',
+      title: 'Melhoria de Fluxo Contínuo Pronta no CloudShell',
+      message: 'Batching assíncrono implementado em electron/mirror.js (-62% latência de I/O).',
+      timestamp: Date.now() - 30000,
+      acknowledged: false,
+      source_trace: {
+        term_id: 'cs_imp_demo_1',
+        agent_id: 'imp_demo_1',
+        provider: 'antigravity',
+        worktree_path: '.worktrees/imp-demo-1',
+        file_target: 'electron/mirror.js'
+      },
+      improvement_id: 'imp_demo_1'
+    }
+  ]);
+
+  // Fila e Histórico de Tarefas do Sistema de Auto-Melhoria
+  const [improvements, setImprovements] = useState({
+    imp_demo_1: {
+      id: 'imp_demo_1',
+      source_notification_code: 'HCS-BTL-104',
+      category: 'bottleneck_opt',
+      status: 'ready_to_merge', // 'running_cloudshell' | 'validating_gate' | 'ready_to_merge' | 'completed' | 'failed'
+      engine: 'antigravity',
+      cloudshell_term_id: 'cs_imp_demo_1',
+      worktree_path: '.worktrees/imp-demo-1',
+      branch_name: 'maestro/imp-demo-1',
+      target_files: ['electron/mirror.js', 'tests/mirror.spec.js'],
+      diagnosis: 'Detectado bloqueio síncrono de I/O na leitura de chunks do diretório antes do envio SSH.',
+      patch_summary: 'Substituído loop sequencial por pipeline em stream + Zero-Copy Junction check. Testes: 12/12 PASSED.',
+      created_at: Date.now() - 120000,
+      updated_at: Date.now() - 30000
+    }
+  });
+
+  const [selectedImprovementId, setSelectedImprovementId] = useState('imp_demo_1');
+  const [cloudShellLogs, setCloudShellLogs] = useState({
+    cs_imp_demo_1: [
+      '[CloudShell PTY] Sessão isolada iniciada em .worktrees/imp-demo-1 (Zero-Copy Junction ativa)',
+      '$ agy -p "/boost Otimizar gargalo HCS-BTL-104 em electron/mirror.js" --mode accept-edits --effort high',
+      '[Antigravity] Rastreando chamadas em electron/mirror.js...',
+      '[Antigravity] Patch aplicado: paralelização de hash SHA-256 por lote.',
+      '$ npm test -- tests/mirror.spec.js',
+      'PASS tests/mirror.spec.js (412ms -> 148ms)',
+      '<<MAESTRO_TASK_DONE>>'
+    ]
+  });
+  const [cloudShellCommandInput, setCloudShellCommandInput] = useState('');
+  const [customImprovementGoal, setCustomImprovementGoal] = useState('');
 
   // Estados Clássicos do Grid Maestro
   const [gridLayout, setGridLayout] = useState('2x2'); // '2x2' | '3x2' | '1x1'
@@ -715,6 +819,298 @@ export default function App() {
         conversationId: ag.conversationId,
         cwd: ag.cwd
       });
+    }
+  };
+
+  // Escuta Notificações, Anomalias do CloudShell e Atualizações de Melhoria vindas do Rust/Node
+  useEffect(() => {
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (!bridge) return;
+
+    const unsubs = [];
+
+    if (typeof bridge.getSelfImprovementConfig === 'function') {
+      bridge.getSelfImprovementConfig().then((cfg) => {
+        if (cfg) setSelfImpConfig((prev) => ({ ...prev, ...cfg }));
+      }).catch(() => {});
+    }
+
+    if (typeof bridge.getNotifications === 'function') {
+      bridge.getNotifications().then((notifs) => {
+        if (Array.isArray(notifs) && notifs.length > 0) {
+          setNotifications(notifs);
+        }
+      }).catch(() => {});
+    }
+
+    if (typeof bridge.getImprovements === 'function') {
+      bridge.getImprovements().then((imps) => {
+        if (imps && typeof imps === 'object' && Object.keys(imps).length > 0) {
+          setImprovements(imps);
+          setSelectedImprovementId((curr) => curr || Object.keys(imps)[0]);
+        }
+      }).catch(() => {});
+    }
+
+    if (typeof bridge.onSystemNotification === 'function') {
+      unsubs.push(
+        bridge.onSystemNotification((notif) => {
+          setNotifications((prev) => [notif, ...prev.filter((n) => n.id !== notif.id)].slice(0, 100));
+        })
+      );
+    }
+
+    if (typeof bridge.onImprovementUpdate === 'function') {
+      unsubs.push(
+        bridge.onImprovementUpdate((task) => {
+          setImprovements((prev) => ({ ...prev, [task.id]: task }));
+          setSelectedImprovementId((curr) => curr || task.id);
+        })
+      );
+    }
+
+    if (typeof bridge.onCloudShellAnomaly === 'function') {
+      unsubs.push(
+        bridge.onCloudShellAnomaly((anomaly) => {
+          const newNotif = {
+            id: `notif_cs_${Date.now()}`,
+            code: anomaly.code || 'HCS-ERR-PTY-501',
+            kind: 'error',
+            severity: 'critical',
+            title: `Anomalia Detectada no CloudShell (${anomaly.termId})`,
+            message: anomaly.snippet,
+            timestamp: anomaly.timestamp || Date.now(),
+            acknowledged: false,
+            source_trace: {
+              term_id: anomaly.termId,
+              pane_id: anomaly.termId,
+              provider: anomaly.provider || 'cloudshell',
+              worktree_path: anomaly.cwd
+            }
+          };
+          setNotifications((prev) => [newNotif, ...prev]);
+        })
+      );
+    }
+
+    if (typeof bridge.onTermData === 'function') {
+      unsubs.push(
+        bridge.onTermData(({ termId, data }) => {
+          if (termId && termId.startsWith('cs_')) {
+            setCloudShellLogs((prev) => ({
+              ...prev,
+              [termId]: [...(prev[termId] || []), data.trim()].filter(Boolean)
+            }));
+          }
+        })
+      );
+    }
+
+    return () => unsubs.forEach((fn) => typeof fn === 'function' && fn());
+  }, []);
+
+  // Atualiza configuração de Auto-Melhoria (Escolha entre Claude / Antigravity / Hybrid e Modo Contínuo)
+  const updateSelfImprovementConfig = async (patch) => {
+    const nextConfig = { ...selfImpConfig, ...patch };
+    setSelfImpConfig(nextConfig);
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.setSelfImprovementConfig) {
+      await bridge.setSelfImprovementConfig({
+        enabled: nextConfig.enabled,
+        continuous_mode: nextConfig.continuousMode,
+        preferred_engine: nextConfig.preferredEngine,
+        auto_apply_cloudshell: nextConfig.autoApplyCloudshell,
+        bottleneck_threshold_ms: Number(nextConfig.bottleneckThresholdMs) || 45000,
+        max_healing_retries: 3
+      });
+    }
+  };
+
+  /**
+   * Segue a notificação até a fonte exata do agente (Painel PTY, Workflow Subagent ou Takeover)
+   */
+  const handleFollowNotificationToSource = async (notif) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notif.id ? { ...n, acknowledged: true } : n))
+    );
+    setShowNotificationsDrawer(false);
+
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.followNotificationSource) {
+      try {
+        const res = await bridge.followNotificationSource(notif.id);
+        if (res?.action === 'OPEN_IMPROVEMENT_SYSTEM') {
+          if (res.improvement?.id) setSelectedImprovementId(res.improvement.id);
+          setActiveView('self-improvement');
+          return;
+        }
+      } catch (_) {}
+    }
+
+    const trace = notif.source_trace || notif.sourceTrace || {};
+
+    // Se for uma notificação de melhoria, vai direto para o Sistema de Melhoria
+    if (notif.kind === 'improvement' && notif.improvement_id) {
+      setSelectedImprovementId(notif.improvement_id);
+      setActiveView('self-improvement');
+      return;
+    }
+
+    // Se tiver run_id de um Dynamic Workflow, abre a visão de Workflows e acopla o PTY Takeover do agente
+    if (trace.run_id && workflowRuns[trace.run_id]) {
+      setSelectedRunId(trace.run_id);
+      setActiveView('workflows');
+      const targetAgent = (workflowRuns[trace.run_id].agents || []).find(
+        (a) => a.id === trace.agent_id
+      );
+      if (targetAgent) {
+        handleTakeoverAgent(targetAgent);
+      }
+      return;
+    }
+
+    // Se veio de um painel do Grid PTY (ex: pane-1..pane-4), vai para o Grid e foca o painel
+    if (trace.pane_id && paneLogs[trace.pane_id]) {
+      setFocusedPaneId(trace.pane_id);
+      setActiveView('grid');
+      appendLog(
+        trace.pane_id,
+        trace.agent_id || 'TRACE',
+        `>>> [RASTREAMENTO ${notif.code}] Foco direcionado para a fonte do evento em ${trace.worktree_path || 'worktree'}.`
+      );
+      return;
+    }
+
+    // Fallback: abre o terminal de Takeover diretamente para o agente rastreado
+    setActiveView('workflows');
+    handleTakeoverAgent({
+      id: trace.agent_id || notif.code,
+      label: `${notif.code} (${trace.agent_id || 'agent'})`,
+      provider: trace.provider || selfImpConfig.preferredEngine,
+      conversationId: trace.conversation_id,
+      cwd: trace.worktree_path
+    });
+  };
+
+  /**
+   * Vai até o Sistema de Auto-Melhoria para rastrear ou disparar a correção via CloudShell
+   */
+  const handleGoToImprovementSystem = async (notif) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notif.id ? { ...n, acknowledged: true } : n))
+    );
+    setShowNotificationsDrawer(false);
+    setActiveView('self-improvement');
+
+    if (notif.improvement_id && improvements[notif.improvement_id]) {
+      setSelectedImprovementId(notif.improvement_id);
+      return;
+    }
+
+    // Se ainda não existe uma tarefa de melhoria para este erro/gargalo, cria e inicia no CloudShell
+    await handleTriggerCloudShellImprovement({
+      notificationCode: notif.code,
+      customGoal: `Corrigir ${notif.code} (${notif.title}): ${notif.message}`,
+      targetFiles: notif.source_trace?.file_target ? [notif.source_trace.file_target] : []
+    });
+  };
+
+  /**
+   * Aciona o Agente de Auto-Melhoria (Claude ou Antigravity) dentro do CloudShell PTY isolado em Worktree
+   */
+  const handleTriggerCloudShellImprovement = async ({
+    notificationCode = null,
+    customGoal = '',
+    engineOverride = null,
+    targetFiles = []
+  } = {}) => {
+    const chosenEngine =
+      engineOverride ||
+      (selfImpConfig.preferredEngine === 'hybrid'
+        ? notificationCode?.includes('BTL')
+          ? 'antigravity'
+          : 'claude'
+        : selfImpConfig.preferredEngine);
+
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.triggerSelfImprovement) {
+      const res = await bridge.triggerSelfImprovement({
+        notificationCode,
+        customGoal: customGoal || customImprovementGoal,
+        engineOverride: chosenEngine,
+        targetFiles
+      });
+      if (res?.improvement) {
+        setImprovements((prev) => ({ ...prev, [res.improvement.id]: res.improvement }));
+        setSelectedImprovementId(res.improvement.id);
+      }
+      setCustomImprovementGoal('');
+      return;
+    }
+
+    // Execução simulada fiel no CloudShell caso esteja em modo preview
+    const impId = `imp_${Date.now().toString(16)}`;
+    const csTermId = `cs_${impId}`;
+    const code = notificationCode || `HCS-IMP-${Math.floor(100 + Math.random() * 899)}`;
+    const goalText =
+      customGoal ||
+      customImprovementGoal ||
+      'Otimização contínua de throughput e blindagem de tipos nos canais IPC.';
+
+    const newTask = {
+      id: impId,
+      source_notification_code: code,
+      category: code.includes('BTL')
+        ? 'bottleneck_opt'
+        : code.includes('ERR')
+        ? 'error_fix'
+        : 'continuous_improvement',
+      status: 'running_cloudshell',
+      engine: chosenEngine,
+      cloudshell_term_id: csTermId,
+      worktree_path: `.worktrees/${impId}`,
+      branch_name: `maestro/${impId}`,
+      target_files: targetFiles,
+      diagnosis: `Diagnosticando gargalo/erro ${code} via ${chosenEngine} no CloudShell...`,
+      patch_summary: null,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    };
+
+    setImprovements((prev) => ({ ...prev, [impId]: newTask }));
+    setSelectedImprovementId(impId);
+    setCustomImprovementGoal('');
+
+    setCloudShellLogs((prev) => ({
+      ...prev,
+      [csTermId]: [
+        `[CloudShell PTY] Sessão isolada criada em .worktrees/${impId}`,
+        `$ ${chosenEngine === 'antigravity' ? 'agy' : 'claude'} -p "${goalText}"`,
+        `[${chosenEngine.toUpperCase()}] Analisando codebase e aplicando auto-heal...`,
+        `$ npm test`,
+        `PASS (Todos os Quality Gates verificados)`,
+        `<<MAESTRO_TASK_DONE>>`
+      ]
+    }));
+  };
+
+  const handleSendCloudShellAdjustment = async (e) => {
+    e.preventDefault();
+    if (!cloudShellCommandInput.trim() || !selectedImprovementId) return;
+
+    const activeImp = improvements[selectedImprovementId];
+    const termId = activeImp?.cloudshell_term_id || `cs_${selectedImprovementId}`;
+    const cmdText = cloudShellCommandInput;
+    setCloudShellCommandInput('');
+
+    setCloudShellLogs((prev) => ({
+      ...prev,
+      [termId]: [...(prev[termId] || []), `> ${cmdText}`]
+    }));
+
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.termWrite) {
+      await bridge.termWrite(termId, `${cmdText}\n`);
     }
   };
 
@@ -919,6 +1315,16 @@ export default function App() {
             >
               <IconPalette /> Pixel Forge 3D
             </button>
+            <button
+              onClick={() => setActiveView('self-improvement')}
+              className={`px-3 py-1 rounded-md transition text-xs font-medium flex items-center gap-1.5 ${
+                activeView === 'self-improvement'
+                  ? 'bg-rose-600/30 text-rose-300 font-semibold border border-rose-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <IconShieldAlert /> Auto-Melhoria ({Object.keys(improvements).length})
+            </button>
           </div>
 
           {/* Seletor de Motor Dual Engine (Claude Code / Antigravity / Hybrid Monster) */}
@@ -972,8 +1378,122 @@ export default function App() {
               /effort ultracode (xhigh)
             </button>
           </div>
+
+          {/* Botão Centro de Notificações Rastreáveis com Badge */}
+          <button
+            onClick={() => setShowNotificationsDrawer((prev) => !prev)}
+            className={`relative p-2 rounded-lg border transition flex items-center gap-1 text-xs ${
+              notifications.filter((n) => !n.acknowledged).length > 0
+                ? 'bg-amber-950/40 border-amber-500/50 text-amber-300 hover:bg-amber-900/50'
+                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+            title="Centro de Notificações Rastreáveis"
+          >
+            <IconShieldAlert />
+            <span className="font-mono text-[11px] font-bold">
+              {notifications.filter((n) => !n.acknowledged).length}
+            </span>
+            {notifications.filter((n) => !n.acknowledged).length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+            )}
+          </button>
         </div>
       </header>
+
+      {/* ====================================================================
+          DRAWER / OVERLAY: CENTRO DE NOTIFICAÇÕES RASTREÁVEIS
+      ==================================================================== */}
+      {showNotificationsDrawer && (
+        <div className="border-b border-slate-800 bg-[#090d14]/98 backdrop-blur p-4 z-40 shadow-2xl animate-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800/80">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                <IconShieldAlert /> Notificações Rastreáveis do Sistema
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                {notifications.length} eventos registrados
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() =>
+                  setNotifications((prev) => prev.map((n) => ({ ...n, acknowledged: true })))
+                }
+                className="text-[10px] font-mono text-slate-400 hover:text-slate-200 px-2 py-1 rounded bg-slate-900 border border-slate-800"
+              >
+                Marcar todas como lidas
+              </button>
+              <button
+                onClick={() => setShowNotificationsDrawer(false)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
+            {notifications.length === 0 ? (
+              <p className="text-xs text-slate-500 font-mono col-span-3">Nenhuma notificação no momento.</p>
+            ) : (
+              notifications.map((notif) => {
+                const isError = notif.kind === 'error';
+                const isBottleneck = notif.kind === 'bottleneck';
+                return (
+                  <div
+                    key={notif.id}
+                    className={`p-3 rounded-lg border flex flex-col justify-between transition ${
+                      notif.acknowledged
+                        ? 'bg-slate-950/60 border-slate-850 opacity-70'
+                        : isError
+                        ? 'bg-rose-950/20 border-rose-500/40 shadow-sm shadow-rose-950/30'
+                        : isBottleneck
+                        ? 'bg-amber-950/20 border-amber-500/40 shadow-sm shadow-amber-950/30'
+                        : 'bg-emerald-950/20 border-emerald-500/40 shadow-sm shadow-emerald-950/30'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span
+                          className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
+                            isError
+                              ? 'bg-rose-900/60 text-rose-300'
+                              : isBottleneck
+                              ? 'bg-amber-900/60 text-amber-300'
+                              : 'bg-emerald-900/60 text-emerald-300'
+                          }`}
+                        >
+                          {notif.code}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">
+                          {new Date(notif.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-semibold text-slate-200 mb-1">{notif.title}</h4>
+                      <p className="text-[11px] text-slate-400 line-clamp-2 mb-2">{notif.message}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-800/60 text-[10px]">
+                      <button
+                        onClick={() => handleFollowNotificationToSource(notif)}
+                        className="flex-1 py-1 px-2 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-mono transition text-center"
+                      >
+                        🎯 Seguir Agente na Fonte
+                      </button>
+                      <button
+                        onClick={() => handleGoToImprovementSystem(notif)}
+                        className="flex-1 py-1 px-2 rounded bg-violet-900/60 hover:bg-violet-800 text-violet-200 font-mono transition text-center"
+                      >
+                        🛠️ Sistema de Melhoria
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ====================================================================
           BARRA DE PROMPT ULTRACODE COM DESTAQUE VIOLETA E ATALHO ALT+W
@@ -1792,6 +2312,290 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeView === 'self-improvement' ? (
+        /* SISTEMA DE AUTO-MELHORIA CONTÍNUA (CLOUDSHELL ADE) */
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-hidden bg-[#06080c]">
+          {/* Coluna Esquerda (5/12): Configurações do Motor, Gatilhos e Lista de Tarefas */}
+          <div className="lg:col-span-5 flex flex-col gap-4 overflow-y-auto">
+            {/* Bloco 1: Painel de Controle do Motor de Auto-Melhoria */}
+            <div className="p-4 rounded-xl border border-slate-800 bg-[#0b0f17]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                    <IconShieldAlert />
+                  </div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                    Motor de Auto-Melhoria Contínua
+                  </h3>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-mono">
+                  <input
+                    type="checkbox"
+                    checked={selfImpConfig.enabled}
+                    onChange={(e) => updateSelfImprovementConfig({ enabled: e.target.checked })}
+                    className="accent-rose-500 rounded"
+                  />
+                  <span className={selfImpConfig.enabled ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                    {selfImpConfig.enabled ? 'ATIVO' : 'PAUSADO'}
+                  </span>
+                </label>
+              </div>
+
+              {/* Seletor de Motor Preferencial para Auto-Heal */}
+              <div className="mb-3">
+                <span className="text-[10px] font-mono text-slate-400 block mb-1">
+                  Motor Padrão de Diagnóstico & Correção:
+                </span>
+                <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+                  <button
+                    onClick={() => updateSelfImprovementConfig({ preferredEngine: 'claude' })}
+                    className={`py-1 rounded font-mono text-[11px] transition ${
+                      selfImpConfig.preferredEngine === 'claude'
+                        ? 'bg-orange-600 text-white font-bold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Claude Code
+                  </button>
+                  <button
+                    onClick={() => updateSelfImprovementConfig({ preferredEngine: 'antigravity' })}
+                    className={`py-1 rounded font-mono text-[11px] transition ${
+                      selfImpConfig.preferredEngine === 'antigravity'
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Antigravity
+                  </button>
+                  <button
+                    onClick={() => updateSelfImprovementConfig({ preferredEngine: 'hybrid' })}
+                    className={`py-1 rounded font-mono text-[11px] transition ${
+                      selfImpConfig.preferredEngine === 'hybrid'
+                        ? 'bg-gradient-to-r from-orange-600 via-violet-600 to-blue-600 text-white font-bold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    ⚡ Híbrido Auto
+                  </button>
+                </div>
+              </div>
+
+              {/* Opções Avançadas de Auto-Heal */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
+                <div className="p-2 rounded bg-slate-900 border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 text-[11px]">Modo Contínuo:</span>
+                  <button
+                    onClick={() => updateSelfImprovementConfig({ continuousMode: !selfImpConfig.continuousMode })}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      selfImpConfig.continuousMode ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {selfImpConfig.continuousMode ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                <div className="p-2 rounded bg-slate-900 border border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400 text-[11px]">Threshold Gargalo:</span>
+                  <span className="text-amber-300 font-bold text-[11px]">
+                    {Math.round(selfImpConfig.bottleneckThresholdMs / 1000)}s
+                  </span>
+                </div>
+              </div>
+
+              {/* Gatilho Manual de Melhoria */}
+              <div className="pt-2 border-t border-slate-800/80">
+                <span className="text-[10px] font-mono text-slate-400 block mb-1">
+                  Disparar Melhoria Manual via CloudShell:
+                </span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customImprovementGoal}
+                    onChange={(e) => setCustomImprovementGoal(e.target.value)}
+                    placeholder="Ex: Otimizar latência do IPC em commands.rs"
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-rose-500 font-mono"
+                  />
+                  <button
+                    onClick={() => handleTriggerCloudShellImprovement()}
+                    className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-rose-900/30 transition font-mono whitespace-nowrap"
+                  >
+                    Disparar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco 2: Lista de Tarefas de Auto-Melhoria */}
+            <div className="flex-1 p-4 rounded-xl border border-slate-800 bg-[#0b0f17] flex flex-col overflow-hidden">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-3 flex items-center justify-between">
+                <span>Fila de Melhorias ({Object.keys(improvements).length})</span>
+                <span className="text-[10px] text-slate-500">Isolação Git Worktree</span>
+              </h3>
+
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                {Object.values(improvements).length === 0 ? (
+                  <p className="text-xs text-slate-500 font-mono">Nenhuma tarefa de melhoria ativa.</p>
+                ) : (
+                  Object.values(improvements).map((imp) => {
+                    const isSelected = selectedImprovementId === imp.id;
+                    const statusBadge =
+                      imp.status === 'ready_to_merge'
+                        ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                        : imp.status === 'running_cloudshell'
+                        ? 'bg-cyan-950 text-cyan-300 border-cyan-800 animate-pulse'
+                        : imp.status === 'validating_gate'
+                        ? 'bg-amber-950 text-amber-300 border-amber-800'
+                        : 'bg-slate-900 text-slate-400 border-slate-800';
+
+                    return (
+                      <div
+                        key={imp.id}
+                        onClick={() => setSelectedImprovementId(imp.id)}
+                        className={`p-3 rounded-lg border text-xs cursor-pointer transition ${
+                          isSelected
+                            ? 'bg-rose-950/20 border-rose-500/60 shadow-sm shadow-rose-950/40'
+                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-slate-200 font-mono">
+                            {imp.source_notification_code || imp.id}
+                          </span>
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase ${statusBadge}`}>
+                            {imp.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono truncate mb-2">
+                          Motor: <span className="text-slate-200">{imp.engine}</span> • Worktree:{' '}
+                          <span className="text-slate-200">{imp.worktree_path}</span>
+                        </div>
+                        {imp.diagnosis && (
+                          <div className="text-[11px] text-slate-300 bg-slate-950/60 p-2 rounded border border-slate-850 line-clamp-2">
+                            {imp.diagnosis}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Coluna Direita (7/12): Inspeção, Diagnóstico e Terminal CloudShell Integrado */}
+          <div className="lg:col-span-7 flex flex-col gap-4 overflow-hidden">
+            {selectedImprovementId && improvements[selectedImprovementId] ? (
+              (() => {
+                const activeImp = improvements[selectedImprovementId];
+                const logs = cloudShellLogs[activeImp.cloudshell_term_id] || [
+                  `[CloudShell PTY] Conectado à sessão ${activeImp.cloudshell_term_id}`,
+                  `Worktree: ${activeImp.worktree_path} (Branch: ${activeImp.branch_name || 'HEAD'})`,
+                  `Motor Ativo: ${activeImp.engine}`,
+                  `Status: ${activeImp.status}`
+                ];
+
+                return (
+                  <>
+                    {/* Header da Tarefa Selecionada com Ações */}
+                    <div className="p-4 rounded-xl border border-slate-800 bg-[#0b0f17] flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h2 className="text-sm font-bold text-white font-mono">
+                            {activeImp.source_notification_code || activeImp.id}
+                          </h2>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300">
+                            Auto-Heal Session
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono">
+                          Worktree: <span className="text-slate-200">{activeImp.worktree_path}</span> • Branch:{' '}
+                          <span className="text-slate-200">{activeImp.branch_name}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleTriggerCloudShellImprovement({
+                              notificationCode: activeImp.source_notification_code,
+                              customGoal: `Re-executar melhoria na estratégia oposta`,
+                              engineOverride: activeImp.engine === 'claude' ? 'antigravity' : 'claude'
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200 border border-slate-700"
+                        >
+                          🔄 Alternar para {activeImp.engine === 'claude' ? 'Antigravity' : 'Claude'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImprovements((prev) => ({
+                              ...prev,
+                              [activeImp.id]: { ...activeImp, status: 'completed' }
+                            }));
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-md shadow-emerald-900/40"
+                        >
+                          ✓ Fazer Merge da Melhoria na Main
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Diagnóstico e Resumo do Patch */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-1 text-xs font-mono">
+                      <div className="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+                        <div className="text-amber-400 font-bold mb-1">Diagnóstico da Causa Raiz:</div>
+                        <p className="text-slate-300 text-[11px]">{activeImp.diagnosis}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900/90 border border-slate-800">
+                        <div className="text-emerald-400 font-bold mb-1">Patch & Validação Gate:</div>
+                        <p className="text-slate-300 text-[11px]">
+                          {activeImp.patch_summary || 'Executando verificações determinísticas no CloudShell...'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Terminal CloudShell Interativo do Agente de Auto-Melhoria */}
+                    <div className="flex-1 flex flex-col bg-[#05070a] border border-slate-800 rounded-xl p-3 font-mono text-xs overflow-hidden">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800 pb-2 mb-2">
+                        <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
+                          <IconCloud /> CloudShell Worktree Terminal ({activeImp.worktree_path})
+                        </span>
+                        <span>Zero-Copy Junction Ativa • Buffer Sincronizado</span>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto space-y-1 text-[11px] text-emerald-300 mb-2">
+                        {logs.map((line, idx) => (
+                          <div key={idx}>{line}</div>
+                        ))}
+                      </div>
+
+                      <form onSubmit={handleSendCloudShellAdjustment} className="flex gap-2 pt-2 border-t border-slate-800">
+                        <input
+                          type="text"
+                          value={cloudShellCommandInput}
+                          onChange={(e) => setCloudShellCommandInput(e.target.value)}
+                          placeholder={`Envie uma instrução de ajuste para o agente ${activeImp.engine} ou comando bash no CloudShell...`}
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs"
+                        >
+                          Ajustar Agente
+                        </button>
+                      </form>
+                    </div>
+                  </>
+                );
+              })()
+            ) : (
+              <div className="m-auto text-xs font-mono text-slate-500">
+                Selecione uma tarefa de auto-melhoria ao lado para inspecionar o CloudShell.
               </div>
             )}
           </div>

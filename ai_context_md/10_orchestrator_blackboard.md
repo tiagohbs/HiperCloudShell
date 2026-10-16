@@ -1,7 +1,7 @@
-# Orquestrador Node.js: BlackboardManager & SelfImprovement (orchestrator/blackboard.js)
+# Orquestrador Node.js: Blackboard, Notificações e Auto-Melhoria (orchestrator/blackboard.js)
 
 > **Arquivo de Origem:** orchestrator/blackboard.js  
-> **Tamanho:** 1043 linhas (38.2 KB)  
+> **Tamanho:** 1055 linhas (38.5 KB)  
 
 `javascript
 // electron/orchestrator/blackboard.js
@@ -122,6 +122,18 @@ export class BlackboardManager extends EventEmitter {
     this.persist();
     this.emit('improvement:update', task);
     return task;
+  }
+
+  updateImprovementTask(id, patch) {
+    if (!this.state.selfImprovement) this.initSelfImprovementSystem();
+    const task = this.state.selfImprovement.improvements[id];
+    if (task) {
+      Object.assign(task, patch, { updatedAt: Date.now() });
+      this.persist();
+      this.emit('improvement:update', task);
+      return task;
+    }
+    return null;
   }
 
   // ==========================================================================

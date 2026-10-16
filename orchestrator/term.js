@@ -60,6 +60,7 @@ export class CloudShellEngine extends EventEmitter {
 
     // Fallback seguro caso node-pty não esteja compilado na máquina host
     const child = spawn(defaultShell, [], { cwd, env: mergedEnv, shell: true });
+    child.on('error', () => {});
     const adapter = {
       write: (data) => child.stdin?.write(data),
       resize: () => {},
@@ -152,6 +153,11 @@ export class TerminalManager extends EventEmitter {
       const data = chunk.toString();
       this.emit('term:data', { termId, data, meta });
       this.sendIpc('ultracode:term-data', { termId, data, meta });
+    });
+    proc.on('error', (err) => {
+      this.emit('term:error', { termId, error: err, meta });
+      this.sendIpc('ultracode:term-data', { termId, data: `\r\n[Term Error: ${err.message}]\r\n`, meta });
+      this.sessions.delete(termId);
     });
     proc.on('close', (exitCode) => {
       this.emit('term:exit', { termId, exitCode, meta });
@@ -822,6 +828,17 @@ export class DualEngineAdapter extends EventEmitter {
       });
       child.stderr?.on('data', (d) => {
         stderr += d.toString();
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+        resolve({
+          ok: false,
+          exitCode: 1,
+          stdout: stdout.trim(),
+          stderr: (stderr ? stderr + '\n' : '') + err.message
+        });
       });
 
       child.on('close', (exitCode) => {

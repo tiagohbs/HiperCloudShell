@@ -355,6 +355,16 @@ pub async fn ultracode_approve_run(
                                     let _ = app_clone.emit("ultracode:agent-telemetry", data);
                                 }
                             }
+                            "system-notification" => {
+                                if let Some(data) = val.get("data") {
+                                    let _ = app_clone.emit("ultracode:system-notification", data);
+                                }
+                            }
+                            "improvement-update" => {
+                                if let Some(data) = val.get("data") {
+                                    let _ = app_clone.emit("ultracode:improvement-update", data);
+                                }
+                            }
                             _ => {}
                         }
                     }

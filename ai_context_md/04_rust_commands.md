@@ -1,7 +1,7 @@
 # Núcleo Rust: Handlers IPC Tauri v2 (src-tauri/src/commands.rs)
 
 > **Arquivo de Origem:** src-tauri/src/commands.rs  
-> **Tamanho:** 808 linhas (26.3 KB)  
+> **Tamanho:** 818 linhas (26.8 KB)  
 
 `rust
 use std::path::PathBuf;
@@ -359,6 +359,16 @@ pub async fn ultracode_approve_run(
                             "agent-telemetry" => {
                                 if let Some(data) = val.get("data") {
                                     let _ = app_clone.emit("ultracode:agent-telemetry", data);
+                                }
+                            }
+                            "system-notification" => {
+                                if let Some(data) = val.get("data") {
+                                    let _ = app_clone.emit("ultracode:system-notification", data);
+                                }
+                            }
+                            "improvement-update" => {
+                                if let Some(data) = val.get("data") {
+                                    let _ = app_clone.emit("ultracode:improvement-update", data);
                                 }
                             }
                             _ => {}
