@@ -174,10 +174,14 @@ export default function App() {
   const [provider, setProvider] = useState('hybrid'); // 'claude' | 'antigravity' | 'hybrid'
   const [dismissedKeyword, setDismissedKeyword] = useState(false);
 
-  // Estados Ultracode Workflows
+  // Estados Ultracode Workflows & Hot-Takeover
   const [workflowRuns, setWorkflowRuns] = useState({});
   const [selectedRunId, setSelectedRunId] = useState(null);
   const [editingScript, setEditingScript] = useState('');
+  const [activePtyTerm, setActivePtyTerm] = useState(null);
+  const [ptyBuffer, setPtyBuffer] = useState('');
+  const [ptyInput, setPtyInput] = useState('');
+  const [maxTokensBudget, setMaxTokensBudget] = useState(50000); // Teto financeiro padrão: 50k tokens
 
   // Estados Clássicos do Grid Maestro
   const [gridLayout, setGridLayout] = useState('2x2'); // '2x2' | '3x2' | '1x1'
@@ -291,6 +295,30 @@ export default function App() {
     const bridge = window.ultracodeAPI || window.hiperAPI;
     if (bridge && typeof bridge.setProvider === 'function') {
       await bridge.setProvider(newProvider);
+    }
+  };
+
+  useEffect(() => {
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (!bridge?.onTermData) return;
+    return bridge.onTermData(({ termId, data }) => {
+      setPtyBuffer((prev) => (prev + data).slice(-12000));
+    });
+  }, []);
+
+  const handleTakeoverAgent = async (ag) => {
+    const termId = `takeover_${ag.id}`;
+    setPtyBuffer(`>>> Conectando ao PTY interativo (${ag.provider}) em ${ag.cwd || 'repo root'}...\n`);
+    setActivePtyTerm({ termId, label: ag.label, provider: ag.provider, cwd: ag.cwd });
+
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.takeoverAgentTerminal) {
+      await bridge.takeoverAgentTerminal({
+        termId,
+        provider: ag.provider,
+        conversationId: ag.conversationId,
+        cwd: ag.cwd
+      });
     }
   };
 
@@ -615,13 +643,29 @@ export default function App() {
                     <p className="text-xs text-violet-400">Fase Atual: {activeRun.currentPhase}</p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg text-xs">
+                      <span className="text-[10px] text-slate-400 font-mono">Teto Tokens:</span>
+                      <input
+                        type="number"
+                        value={maxTokensBudget}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0;
+                          setMaxTokensBudget(val);
+                          const bridge = window.ultracodeAPI || window.hiperAPI;
+                          if (bridge?.setTokenBudget) bridge.setTokenBudget(activeRun.id, val);
+                        }}
+                        step={10000}
+                        className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 focus:outline-none"
+                      />
+                    </div>
+
                     {activeRun.status === 'pending_approval' && (
                       <button
                         onClick={async () => {
                           const bridge = window.ultracodeAPI || window.hiperAPI;
                           if (bridge && bridge.approveRun) {
-                            await bridge.approveRun(activeRun.id, editingScript, {});
+                            await bridge.approveRun(activeRun.id, editingScript, { maxTokensPerRun: maxTokensBudget });
                           }
                         }}
                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-md shadow-emerald-900/40"
@@ -679,53 +723,115 @@ export default function App() {
                     />
                   </div>
 
-                  {/* Subagentes Disparados com Badges de Motor Cross-Provider */}
+                  {/* Subagentes Disparados com Badges de Motor e Botao Hot-Takeover */}
                   {activeRun.agents && activeRun.agents.length > 0 && (
-                    <div className="bg-[#05070a] border border-slate-800 rounded-lg p-2.5 max-h-44 overflow-y-auto">
+                    <div className="bg-[#05070a] border border-slate-800 rounded-lg p-2.5 max-h-48 overflow-y-auto">
                       <div className="text-[11px] font-bold text-slate-400 mb-1.5 flex justify-between items-center">
                         <span className="text-violet-300">Subagentes no Workflow ({activeRun.agents.length})</span>
-                        <span className="text-[10px] text-slate-500 font-mono">Cross-Provider Engine</span>
+                        <span className="text-[10px] text-slate-500 font-mono">Cross-Provider Engine & Hot-Takeover</span>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {activeRun.agents.map((ag) => (
                           <div
                             key={ag.id}
-                            className="flex items-center justify-between p-2 bg-slate-900/80 rounded border border-slate-800 text-[11px]"
+                            className="p-2.5 bg-slate-900/90 rounded border border-slate-800 text-[11px] flex flex-col gap-1.5"
                           >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold ${
-                                  ag.provider === 'antigravity'
-                                    ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                                    : ag.provider === 'claude'
-                                    ? 'bg-orange-950 text-orange-300 border border-orange-800'
-                                    : 'bg-violet-950 text-violet-300 border border-violet-800'
-                                }`}
-                              >
-                                {ag.provider === 'antigravity' ? 'agy' : ag.provider === 'claude' ? 'claude' : 'hybrid'}
-                              </span>
-                              <span className="font-semibold text-slate-200">{ag.label}</span>
-                              <span className="text-[10px] text-slate-400">[{ag.phase}]</span>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold ${
+                                    ag.provider === 'antigravity'
+                                      ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                                      : ag.provider === 'claude'
+                                      ? 'bg-orange-950 text-orange-300 border border-orange-800'
+                                      : 'bg-violet-950 text-violet-300 border border-violet-800'
+                                  }`}
+                                >
+                                  {ag.provider === 'antigravity' ? 'agy' : ag.provider === 'claude' ? 'claude' : 'hybrid'}
+                                </span>
+                                {ag.effectiveEffort && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+                                    effort: {ag.effectiveEffort}
+                                  </span>
+                                )}
+                                <span className="font-semibold text-slate-200">{ag.label}</span>
+                                <span className="text-[10px] text-slate-400">[{ag.phase}]</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {ag.tokens ? (
+                                  <span className="text-[10px] font-mono text-slate-400">{ag.tokens} tok</span>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => handleTakeoverAgent(ag)}
+                                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-violet-600 text-[10px] text-slate-200 font-semibold transition"
+                                >
+                                  ⚡ Assumir PTY
+                                </button>
+                                <span
+                                  className={`text-[10px] uppercase font-mono font-semibold ${
+                                    ag.status === 'completed'
+                                      ? 'text-emerald-400'
+                                      : ag.status === 'failed'
+                                      ? 'text-rose-400'
+                                      : 'text-amber-400'
+                                  }`}
+                                >
+                                  {ag.status}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {ag.tokens ? (
-                                <span className="text-[10px] font-mono text-slate-400">{ag.tokens} tok</span>
-                              ) : null}
-                              <span
-                                className={`text-[10px] uppercase font-mono font-semibold ${
-                                  ag.status === 'completed'
-                                    ? 'text-emerald-400'
-                                    : ag.status === 'failed'
-                                    ? 'text-rose-400'
-                                    : 'text-amber-400'
-                                }`}
-                              >
-                                {ag.status}
-                              </span>
-                            </div>
+
+                            {/* Telemetria ao Vivo */}
+                            {ag.logs && ag.logs.length > 0 && (
+                              <div className="font-mono text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded truncate border border-slate-800">
+                                {ag.logs[ag.logs.length - 1].text}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Console PTY Interativo de Hot-Takeover */}
+                  {activePtyTerm && (
+                    <div className="bg-black border border-violet-700/80 rounded-xl p-3 font-mono text-xs shadow-xl shadow-violet-950/40">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-2">
+                        <span className="text-violet-400 font-bold flex items-center gap-1.5">
+                          <IconZap /> PTY Live Takeover: {activePtyTerm.label} ({activePtyTerm.provider}) — {activePtyTerm.cwd}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActivePtyTerm(null)}
+                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]"
+                        >
+                          Fechar PTY
+                        </button>
+                      </div>
+                      <pre className="h-32 overflow-y-auto text-emerald-400 whitespace-pre-wrap mb-2 text-[11px] bg-slate-950 p-2 rounded border border-slate-900">
+                        {ptyBuffer || 'Aguardando saída do processo...'}
+                      </pre>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const bridge = window.ultracodeAPI || window.hiperAPI;
+                          if (bridge?.termWrite) bridge.termWrite(activePtyTerm.termId, ptyInput + '\n');
+                          setPtyInput('');
+                        }}
+                        className="flex gap-2"
+                      >
+                        <input
+                          type="text"
+                          value={ptyInput}
+                          onChange={(e) => setPtyInput(e.target.value)}
+                          placeholder="Envie comandos ou instruções diretamente para a sessão do subagente..."
+                          className="flex-1 bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-100 text-xs focus:outline-none focus:border-violet-500"
+                        />
+                        <button type="submit" className="px-3 py-1 rounded bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs">
+                          Enviar
+                        </button>
+                      </form>
                     </div>
                   )}
 
@@ -739,6 +845,7 @@ export default function App() {
                       </pre>
                     </div>
                   )}
+                </div>
                 </div>
               </>
             )}

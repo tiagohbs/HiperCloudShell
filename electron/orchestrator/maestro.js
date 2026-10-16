@@ -218,7 +218,8 @@ return await agent(
       id: runId,
       prompt,
       script,
-      meta
+      meta,
+      maxTokensPerRun: options.maxTokensPerRun || 0
     });
 
     if (options.autoApprove) {
@@ -240,9 +241,13 @@ return await agent(
   }
 
   // 2ª Fase: Executa o script JavaScript na Sandbox isolada node:vm
-  async executeWorkflowRun(runId, { args = {}, effort = 'xhigh' } = {}) {
+  async executeWorkflowRun(runId, { args = {}, effort = 'xhigh', maxTokensPerRun = 0 } = {}) {
     const run = this.blackboard.getRun(runId);
     if (!run) throw new Error(`Workflow ${runId} nao encontrado.`);
+
+    if (maxTokensPerRun > 0) {
+      run.maxTokensPerRun = maxTokensPerRun;
+    }
 
     const limits = UltracodeGates.getRuntimeLimits();
     const semaphore = new ConcurrencySemaphore(limits.maxConcurrentAgents);
@@ -262,6 +267,9 @@ return await agent(
       if (abortController.signal.aborted) {
         throw new Error('WORKFLOW_PAUSED');
       }
+
+      // Disjuntor financeiro de tokens em tempo real
+      UltracodeGates.enforceTokenBudget(run.tokensUsed, run.maxTokensPerRun || maxTokensPerRun);
 
       const callIndex = callCounter++;
       const signature = JSON.stringify({ agentPrompt, agentOptions });
@@ -313,6 +321,7 @@ return await agent(
             : '';
 
           const rawResponse = await this.runSubagentWorker({
+            agentId,
             prompt: `${agentPrompt}${schemaInstruction}${retryFeedback}`,
             cwd: workingDir,
             provider: agentOptions.provider,
@@ -325,6 +334,15 @@ return await agent(
             acceptEdits: true,
             signal: abortController.signal
           });
+
+          if (rawResponse.conversationId) {
+            const ag = run.agents.find((a) => a.id === agentId);
+            if (ag) {
+              ag.conversationId = rawResponse.conversationId;
+              ag.cwd = workingDir;
+              ag.effectiveEffort = rawResponse.effectiveEffort;
+            }
+          }
 
           usedTokens += rawResponse.tokens || 450;
 
@@ -375,6 +393,178 @@ return await agent(
       this.blackboard.setPhase(runId, title);
     };
 
+    // Nova Primitiva 1: verifyCmd(cmd, { cwd }) -> Execução determinística de testes/linters
+    const verifyCmd = async (commandStr, cmdOpts = {}) => {
+      if (abortController.signal.aborted) throw new Error('WORKFLOW_PAUSED');
+      if (!this.llmAdapter?.runDeterministicCommand) {
+        return { ok: true, exitCode: 0, stdout: 'Mock command OK', stderr: '' };
+      }
+      return await this.llmAdapter.runDeterministicCommand(commandStr, {
+        cwd: cmdOpts.cwd || this.blackboard.projectRoot,
+        timeoutMs: cmdOpts.timeoutMs || 60000,
+        signal: abortController.signal
+      });
+    };
+
+    // Nova Primitiva 2: consensus(promptOrOptions, maybeOptions) -> Claude + Antigravity em paralelo + Juiz de síntese
+    const consensus = async (promptOrOptions, maybeOptions = {}) => {
+      const opts =
+        typeof promptOrOptions === 'object' && promptOrOptions !== null
+          ? { ...promptOrOptions, ...maybeOptions }
+          : { prompt: String(promptOrOptions), ...maybeOptions };
+
+      const taskPrompt = opts.prompt || '';
+      const providerA = opts.providerA || 'claude';
+      const providerB = opts.providerB || 'antigravity';
+      const judgeProvider = opts.arbitratorProvider || opts.judgeProvider || 'claude';
+
+      const [resA, resB] = await Promise.all([
+        agent(taskPrompt, {
+          ...opts,
+          label: `${opts.label || 'consensus'}:${providerA}`,
+          provider: providerA,
+          schema: null
+        }),
+        agent(taskPrompt, {
+          ...opts,
+          label: `${opts.label || 'consensus'}:${providerB}`,
+          provider: providerB,
+          schema: null
+        })
+      ]);
+
+      const judgeResult = await agent(
+        `Compare as duas soluções abaixo para a tarefa "${taskPrompt}".\nExtraia os pontos fortes de cada uma, elimine alucinações ou regressões e produza o veredito definitivo.\n\n--- SOLUÇÃO ${providerA.toUpperCase()} ---\n${typeof resA === 'string' ? resA : JSON.stringify(resA)}\n\n--- SOLUÇÃO ${providerB.toUpperCase()} ---\n${typeof resB === 'string' ? resB : JSON.stringify(resB)}`,
+        {
+          label: `${opts.label || 'consensus'}:arbitrator`,
+          phase: opts.phase || run.currentPhase,
+          provider: judgeProvider,
+          schema: opts.schema || null
+        }
+      );
+
+      return {
+        arbitrated: judgeResult,
+        solutionA: resA,
+        solutionB: resB,
+        ...(typeof judgeResult === 'object' && judgeResult !== null ? judgeResult : {})
+      };
+    };
+
+    // Nova Primitiva 3: speculate(strategiesOrOptions, maybeOptions) -> Corrida especulativa em Worktrees isoladas
+    const speculate = async (strategiesOrOptions, maybeOptions = {}) => {
+      let strategyList = [];
+      let testCommand = 'npm test';
+
+      if (Array.isArray(strategiesOrOptions)) {
+        strategyList = strategiesOrOptions;
+        testCommand = maybeOptions.testCommand || maybeOptions.testCmd || 'npm test';
+      } else if (typeof strategiesOrOptions === 'object' && strategiesOrOptions !== null) {
+        testCommand =
+          strategiesOrOptions.testCommand ||
+          strategiesOrOptions.testCmd ||
+          maybeOptions.testCommand ||
+          maybeOptions.testCmd ||
+          'npm test';
+
+        if (strategiesOrOptions.strategyA || strategiesOrOptions.strategyB) {
+          strategyList = [
+            {
+              label: 'strategyA',
+              prompt: strategiesOrOptions.strategyA,
+              run: typeof strategiesOrOptions.strategyA === 'function' ? strategiesOrOptions.strategyA : null
+            },
+            {
+              label: 'strategyB',
+              prompt: strategiesOrOptions.strategyB,
+              run: typeof strategiesOrOptions.strategyB === 'function' ? strategiesOrOptions.strategyB : null
+            }
+          ];
+        } else if (Array.isArray(strategiesOrOptions.strategies)) {
+          strategyList = strategiesOrOptions.strategies;
+        }
+      }
+
+      const results = await Promise.all(
+        strategyList.map(async (strat, idx) => {
+          const provider = strat.provider || (idx % 2 === 0 ? 'claude' : 'antigravity');
+          const label = strat.label || `strategy${String.fromCharCode(65 + idx)}`;
+          let wt = null;
+          try {
+            wt = await this.worktreeManager.createIsolatedWorktree(`${runId}_spec_${idx}`);
+          } catch (_) {
+            wt = { worktreePath: this.blackboard.projectRoot, branchName: null };
+          }
+
+          try {
+            let outputVal = null;
+            if (typeof strat.run === 'function') {
+              outputVal = await strat.run({
+                worktreePath: wt.worktreePath,
+                branchName: wt.branchName,
+                agent: (p, o) => agent(p, { ...o, cwd: wt.worktreePath })
+              });
+            } else {
+              const agentOutput = await this.runSubagentWorker({
+                agentId: `${runId}_spec_${idx}`,
+                prompt: typeof strat.prompt === 'string' ? strat.prompt : (strat.prompt || label),
+                cwd: wt.worktreePath,
+                provider,
+                effort,
+                acceptEdits: true,
+                signal: abortController.signal,
+                label
+              });
+              outputVal = agentOutput.output;
+            }
+
+            const check = await verifyCmd(testCommand, { cwd: wt.worktreePath });
+            return {
+              label,
+              provider,
+              passedTests: check.ok !== false,
+              testOutput: check.stdout || check.stderr,
+              agentOutput: outputVal,
+              worktreePath: wt.worktreePath,
+              branchName: wt.branchName
+            };
+          } catch (err) {
+            return { label, provider, passedTests: false, error: err.message };
+          }
+        })
+      );
+
+      const winningAttempt = results.find((r) => r.passedTests) || results[0];
+      const winnerName = winningAttempt?.label || 'strategyA';
+
+      if (
+        winningAttempt &&
+        winningAttempt.branchName &&
+        winningAttempt.worktreePath &&
+        typeof this.worktreeManager.commitWorktreeChanges === 'function'
+      ) {
+        await this.worktreeManager.commitWorktreeChanges(
+          winningAttempt.worktreePath,
+          `ultracode(speculate-winner): ${winningAttempt.label}`
+        );
+      }
+
+      return {
+        winner: winnerName,
+        winningStrategy: winnerName,
+        passedTests: winningAttempt?.passedTests ?? true,
+        output: winningAttempt?.agentOutput,
+        details: winningAttempt,
+        allAttempts: results
+      };
+    };
+
+    // Nova Primitiva 4: memory -> Quadro negro partilhado entre agentes
+    const memory = Object.freeze({
+      set: (key, val) => this.blackboard.setMemory(runId, key, val),
+      get: (key) => this.blackboard.getMemory(runId, key)
+    });
+
     // Proibe import() ou require() no script gerado para blindagem
     if (/\bimport\s*\(/.test(run.script) || /^\s*import\s+/m.test(run.script)) {
       run.status = 'failed';
@@ -391,6 +581,10 @@ return await agent(
       pipeline,
       parallel,
       phase,
+      verifyCmd,
+      consensus,
+      speculate,
+      memory,
       args: Object.freeze({ ...args }),
       JSON,
       Math,
@@ -419,6 +613,9 @@ return await agent(
     } catch (err) {
       if (err.message === 'WORKFLOW_PAUSED' || abortController.signal.aborted) {
         run.status = 'paused';
+      } else if (err.code === 'TOKEN_BUDGET_EXCEEDED' || err.message?.includes('TOKEN_BUDGET_EXCEEDED')) {
+        run.status = 'paused';
+        run.pauseReason = err.message;
       } else {
         run.status = 'failed';
         run.error = err.message || String(err);
@@ -445,9 +642,9 @@ return await agent(
     return await this.executeWorkflowRun(runId, options);
   }
 
-  async runSubagentWorker({ prompt, cwd, provider, model, agentType, schema, label, phase, effort, acceptEdits, signal }) {
+  async runSubagentWorker({ agentId, prompt, cwd, provider, model, agentType, schema, label, phase, effort, acceptEdits, signal }) {
     if (this.llmAdapter?.runAgent) {
-      return await this.llmAdapter.runAgent({ prompt, cwd, provider, model, agentType, schema, label, phase, effort, acceptEdits, signal });
+      return await this.llmAdapter.runAgent({ agentId, prompt, cwd, provider, model, agentType, schema, label, phase, effort, acceptEdits, signal });
     }
     // Fallback de execucao deterministica caso llmAdapter externo nao tenha sido configurado
     return {

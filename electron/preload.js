@@ -14,6 +14,9 @@ const ultracodeAPI = {
   saveWorkflow: (runId, name) => ipcRenderer.invoke('ultracode:save-workflow', { runId, name }),
   termCreate: (termId, cwd) => ipcRenderer.invoke('ultracode:term-create', { termId, cwd }),
   termWrite: (termId, input) => ipcRenderer.invoke('ultracode:term-write', { termId, input }),
+  takeoverAgentTerminal: (payload) => ipcRenderer.invoke('ultracode:term-takeover', payload),
+  setTokenBudget: (runId, maxTokensPerRun) =>
+    ipcRenderer.invoke('ultracode:set-token-budget', { runId, maxTokensPerRun }),
   onWorkflowUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('ultracode:workflow-update', handler);
@@ -23,6 +26,11 @@ const ultracodeAPI = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('ultracode:agent-stream', handler);
     return () => ipcRenderer.removeListener('ultracode:agent-stream', handler);
+  },
+  onTermData: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('ultracode:term-data', listener);
+    return () => ipcRenderer.removeListener('ultracode:term-data', listener);
   }
 };
 

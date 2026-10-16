@@ -50,6 +50,17 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, customAdapter 
     }
   });
 
+  llmAdapter.on('agent:telemetry', (evt) => {
+    for (const [runId, run] of blackboard.runs.entries()) {
+      if (run.status === 'running' && evt.agentId) {
+        blackboard.appendAgentTelemetry(runId, evt.agentId, evt);
+      }
+    }
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('ultracode:agent-telemetry', evt);
+    }
+  });
+
   termManager.on('term:data', (payload) => {
     if (window && !window.isDestroyed()) {
       window.webContents.send('ultracode:term-data', payload);
@@ -60,6 +71,15 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, customAdapter 
   ipcMain.handle('ultracode:set-provider', (_event, provider) => {
     llmAdapter.defaultProvider = provider;
     return { provider: llmAdapter.defaultProvider };
+  });
+
+  ipcMain.handle('ultracode:set-token-budget', (_event, { runId, maxTokensPerRun }) => {
+    const run = blackboard.getRun(runId);
+    if (run) {
+      run.maxTokensPerRun = Number(maxTokensPerRun) || 0;
+      blackboard.emitUpdate(runId);
+    }
+    return { maxTokensPerRun };
   });
 
   ipcMain.handle('ultracode:set-effort', (_event, effortLevel) => {
@@ -83,12 +103,13 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, customAdapter 
     return { mode: 'workflow', effort: detection.effort, run: runState };
   });
 
-  ipcMain.handle('ultracode:approve-run', async (_event, { runId, editedScript, args }) => {
+  ipcMain.handle('ultracode:approve-run', async (_event, { runId, editedScript, args, maxTokensPerRun }) => {
     const run = blackboard.getRun(runId);
-    if (run && editedScript) {
-      run.script = editedScript;
+    if (run) {
+      if (editedScript) run.script = editedScript;
+      if (maxTokensPerRun) run.maxTokensPerRun = Number(maxTokensPerRun) || 0;
     }
-    maestro.executeWorkflowRun(runId, { args });
+    maestro.executeWorkflowRun(runId, { args, maxTokensPerRun });
     return { started: true, runId };
   });
 
@@ -106,9 +127,16 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, customAdapter 
     return blackboard.saveWorkflowToDisk(runId, name);
   });
 
-  // Endpoints de Terminal PTY (para rodar `claude` ou `agy` interativos)
+  // Endpoints de Terminal PTY (para rodar `claude` ou `agy` interativos ou Hot-Takeover)
   ipcMain.handle('ultracode:term-create', (_event, { termId, cwd }) =>
     termManager.createSession(termId, { cwd: cwd || projectRoot })
+  );
+  ipcMain.handle('ultracode:term-takeover', (_event, { termId, provider, conversationId, cwd }) =>
+    termManager.spawnInteractiveTakeover(termId, {
+      provider,
+      conversationId,
+      cwd: cwd || projectRoot
+    })
   );
   ipcMain.handle('ultracode:term-write', (_event, { termId, input }) =>
     termManager.write(termId, input)

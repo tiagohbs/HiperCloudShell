@@ -40,8 +40,31 @@ export class UltracodeGates {
           ? Math.min(envConcurrent, 16)
           : cpuScaledCap,
       maxTotalAgentsPerRun: 1000,
-      workflowsDisabled: process.env.CLAUDE_CODE_DISABLE_WORKFLOWS === '1'
+      workflowsDisabled: process.env.CLAUDE_CODE_DISABLE_WORKFLOWS === '1',
+      defaultProviderCaps: {
+        claude: 'xhigh',
+        antigravity: 'xhigh'
+      }
     };
+  }
+
+  static clampEffort(requestedEffort = 'high', maxCap = 'xhigh') {
+    const levels = ['low', 'medium', 'high', 'xhigh'];
+    const reqIndex = levels.indexOf(requestedEffort === 'ultracode' ? 'xhigh' : requestedEffort);
+    const capIndex = levels.indexOf(maxCap);
+    if (reqIndex === -1) return maxCap || 'high';
+    if (capIndex === -1) return requestedEffort;
+    return levels[Math.min(reqIndex, capIndex)];
+  }
+
+  static enforceTokenBudget(currentTokensUsed, maxTokensPerRun = 0) {
+    if (maxTokensPerRun && maxTokensPerRun > 0 && currentTokensUsed >= maxTokensPerRun) {
+      const err = new Error(
+        `TOKEN_BUDGET_EXCEEDED: Disjuntor financeiro ativado. Consumo atual (${currentTokensUsed} tokens) atingiu o orçamento máximo de ${maxTokensPerRun} tokens.`
+      );
+      err.code = 'TOKEN_BUDGET_EXCEEDED';
+      throw err;
+    }
   }
 
   static enforceAgentCap(totalSpawned, maxTotal = 1000) {

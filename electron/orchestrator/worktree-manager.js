@@ -58,6 +58,24 @@ export class WorktreeManager {
     return { worktreePath, branchName };
   }
 
+  async createWorktree(agentId, baseBranch = 'HEAD') {
+    return await this.createIsolatedWorktree(agentId, baseBranch);
+  }
+
+  async commitWorktreeChanges(worktreePath, commitMessage = 'Auto commit from HiperCloudShell') {
+    try {
+      await execFileAsync('git', ['add', '-A'], { cwd: worktreePath });
+      const { stdout: status } = await execFileAsync('git', ['status', '--porcelain'], { cwd: worktreePath });
+      if (status && status.trim()) {
+        await execFileAsync('git', ['commit', '-m', commitMessage], { cwd: worktreePath });
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   async getWorktreeDiff(worktreePath) {
     const { stdout } = await execFileAsync('git', ['status', '--porcelain'], {
       cwd: worktreePath
@@ -84,6 +102,65 @@ export class WorktreeManager {
       await execFileAsync('git', ['branch', '-D', branchName], {
         cwd: this.repoRoot
       }).catch(() => {});
+    }
+  }
+
+  /**
+   * Faz o merge de uma branch de worktree de volta na branch alvo.
+   * Se houver conflito Git, invoca opcionalmente um subagente resolverFn para corrigir os ficheiros em conflito.
+   */
+  async mergeWorktreeBranch(branchName, { resolverFn = null } = {}) {
+    try {
+      await execFileAsync('git', ['merge', '--no-ff', '-m', `Merge ${branchName}`, branchName], {
+        cwd: this.repoRoot
+      });
+      return { merged: true, hadConflicts: false, conflictsResolved: false, branchName };
+    } catch (mergeErr) {
+      // Verifica quais ficheiros ficaram em conflito
+      const { stdout: conflictedFilesRaw } = await execFileAsync(
+        'git',
+        ['diff', '--name-only', '--diff-filter=U'],
+        { cwd: this.repoRoot }
+      ).catch(() => ({ stdout: '' }));
+
+      const conflictedFiles = (conflictedFilesRaw || '')
+        .split('\n')
+        .map((f) => f.trim())
+        .filter(Boolean);
+
+      if (conflictedFiles.length > 0 && typeof resolverFn === 'function') {
+        await resolverFn({
+          branchName,
+          conflictedFiles,
+          conflictFiles: conflictedFiles,
+          repoRoot: this.repoRoot,
+          cwd: this.repoRoot
+        });
+
+        await execFileAsync('git', ['add', '-A'], { cwd: this.repoRoot });
+        await execFileAsync('git', ['commit', '-m', `Merge ${branchName} (AI conflict resolution)`], {
+          cwd: this.repoRoot
+        });
+
+        return {
+          merged: true,
+          hadConflicts: true,
+          conflictsResolved: true,
+          resolvedFiles: conflictedFiles,
+          branchName
+        };
+      }
+
+      // Se não houver resolverFn, aborta o merge para manter o repositório limpo
+      await execFileAsync('git', ['merge', '--abort'], { cwd: this.repoRoot }).catch(() => {});
+      return {
+        merged: false,
+        hadConflicts: true,
+        conflictsResolved: false,
+        conflictedFiles,
+        conflictFiles: conflictedFiles,
+        error: mergeErr.message
+      };
     }
   }
 

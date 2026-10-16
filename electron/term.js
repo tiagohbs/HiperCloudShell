@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
+import { UltracodeGates } from './orchestrator/gates.js';
 
 let pty = null;
 try {
@@ -29,7 +30,7 @@ export class TerminalManager extends EventEmitter {
     super();
     this.mainWindow = mainWindow;
     this.cloudShellProvider = cloudShellProvider;
-    this.sessions = new Map(); // Map<paneId, SessionObject>
+    this.sessions = new Map(); // termId -> { type, proc, cwd, meta }
   }
 
   /**
@@ -49,43 +50,90 @@ export class TerminalManager extends EventEmitter {
   /**
    * Cria sessao interativa direta para terminal do usuário (PTY ou fallback child_process)
    */
-  createSession(termId, { cwd = process.cwd(), shell, env = {} } = {}) {
-    const defaultShell = shell || (os.platform() === 'win32' ? 'powershell.exe' : process.env.SHELL || 'bash');
+  createSession(termId, { cwd = process.cwd(), shell, env = {}, command = null, args = [], meta = {} } = {}) {
+    if (this.sessions.has(termId)) {
+      this.kill(termId);
+    }
+
+    const defaultShell = command || shell || (os.platform() === 'win32' ? 'powershell.exe' : process.env.SHELL || 'bash');
     const mergedEnv = { ...process.env, ...env, TERM: 'xterm-256color' };
 
     if (pty) {
-      const ptyProcess = pty.spawn(defaultShell, [], {
+      const ptyProcess = pty.spawn(defaultShell, args, {
         name: 'xterm-256color',
         cols: 120,
-        rows: 34,
+        rows: 36,
         cwd,
         env: mergedEnv
       });
 
       ptyProcess.onData((data) => {
-        this.emit('term:data', { termId, data });
+        this.emit('term:data', { termId, data, meta });
+        this.sendIpc('ultracode:term-data', { termId, data, meta });
       });
 
-      ptyProcess.onExit(({ exitCode }) => {
-        this.emit('term:exit', { termId, exitCode });
+      ptyProcess.onExit(({ exitCode, signal }) => {
+        this.emit('term:exit', { termId, exitCode, signal, meta });
         this.sessions.delete(termId);
       });
 
-      this.sessions.set(termId, { type: 'pty', proc: ptyProcess, cwd });
-      return { termId, mode: 'node-pty' };
+      this.sessions.set(termId, { type: 'pty', proc: ptyProcess, cwd, meta });
+      return { termId, mode: 'node-pty', cwd, meta };
     }
 
     // Fallback com child_process caso node-pty não esteja ativo
-    const proc = spawn(defaultShell, [], { cwd, env: mergedEnv, shell: true });
-    proc.stdout?.on('data', (chunk) => this.emit('term:data', { termId, data: chunk.toString() }));
-    proc.stderr?.on('data', (chunk) => this.emit('term:data', { termId, data: chunk.toString() }));
+    const proc = spawn(defaultShell, args, {
+      cwd,
+      env: mergedEnv,
+      shell: !command
+    });
+
+    proc.stdout?.on('data', (chunk) => {
+      const data = chunk.toString();
+      this.emit('term:data', { termId, data, meta });
+      this.sendIpc('ultracode:term-data', { termId, data, meta });
+    });
+    proc.stderr?.on('data', (chunk) => {
+      const data = chunk.toString();
+      this.emit('term:data', { termId, data, meta });
+      this.sendIpc('ultracode:term-data', { termId, data, meta });
+    });
     proc.on('close', (exitCode) => {
-      this.emit('term:exit', { termId, exitCode });
+      this.emit('term:exit', { termId, exitCode, meta });
       this.sessions.delete(termId);
     });
 
-    this.sessions.set(termId, { type: 'spawn', proc, cwd });
-    return { termId, mode: 'child_process' };
+    this.sessions.set(termId, { type: 'spawn', proc, cwd, meta });
+    return { termId, mode: 'child_process', cwd, meta };
+  }
+
+  /**
+   * Hot-Takeover: Abre um terminal PTY interativo conectado à sessão e ao diretório
+   * (ou Git Worktree) de um subagente Claude ou Antigravity específico.
+   */
+  spawnInteractiveTakeover(termId, {
+    provider = 'claude',
+    conversationId = null,
+    cwd = process.cwd(),
+    claudeBin = process.env.CLAUDE_BIN || 'claude',
+    antigravityBin = process.env.AGY_BIN || 'agy'
+  } = {}) {
+    const isAntigravity = provider === 'antigravity';
+    const binary = isAntigravity ? antigravityBin : claudeBin;
+
+    let args = [];
+    if (conversationId) {
+      args = isAntigravity
+        ? ['--conversation-id', conversationId]
+        : ['--resume', conversationId];
+    }
+
+    return this.createSession(termId, {
+      cwd,
+      command: binary,
+      args,
+      meta: { provider, conversationId, takeover: true }
+    });
   }
 
   write(termId, input) {
@@ -330,16 +378,38 @@ export class TerminalManager extends EventEmitter {
  */
 export class DualEngineAdapter extends EventEmitter {
   constructor({
-    defaultProvider = 'claude', // 'claude' | 'antigravity' | 'hybrid'
+    defaultProvider = 'hybrid', // 'claude' | 'antigravity' | 'hybrid'
     claudeBin = process.env.CLAUDE_BIN || 'claude',
     antigravityBin = process.env.AGY_BIN || 'agy',
-    projectRoot = process.cwd()
+    projectRoot = process.cwd(),
+    providerMaxEffort = null
   } = {}) {
     super();
     this.defaultProvider = defaultProvider;
     this.claudeBin = claudeBin;
     this.antigravityBin = antigravityBin;
     this.projectRoot = projectRoot;
+
+    const defaults = UltracodeGates.getRuntimeLimits().defaultProviderCaps || {
+      claude: 'xhigh',
+      antigravity: 'xhigh'
+    };
+    this.providerMaxEffort = {
+      claude: providerMaxEffort?.claude || defaults.claude,
+      antigravity: providerMaxEffort?.antigravity || defaults.antigravity
+    };
+  }
+
+  setProviderMaxEffort(provider, maxEffort) {
+    if (provider === 'claude' || provider === 'antigravity') {
+      this.providerMaxEffort[provider] = maxEffort;
+    }
+    return { ...this.providerMaxEffort };
+  }
+
+  getEffectiveEffort(provider, requestedEffort = 'high') {
+    const cap = this.providerMaxEffort[provider] || 'high';
+    return UltracodeGates.clampEffort(requestedEffort, cap);
   }
 
   /**
@@ -371,7 +441,8 @@ export class DualEngineAdapter extends EventEmitter {
   /**
    * Monta os argumentos de linha de comando específicos para o Claude CLI (`claude`)
    */
-  buildClaudeArgs({ prompt, model, effort, acceptEdits, schema, stream = false }) {
+  buildClaudeArgs({ prompt, model, effort, acceptEdits, schema, stream = false, resumeId = null }) {
+    const effectiveEffort = this.getEffectiveEffort('claude', effort);
     const args = ['-p', prompt, '--output-format', stream ? 'stream-json' : 'json'];
 
     if (stream) {
@@ -383,22 +454,28 @@ export class DualEngineAdapter extends EventEmitter {
     if (model) {
       args.push('--model', model);
     }
-    if (effort) {
-      const normalizedEffort = effort === 'ultracode' ? 'xhigh' : effort;
-      args.push('--effort', normalizedEffort);
+    if (resumeId) {
+      args.push('--resume', resumeId);
     }
+    args.push('--effort', effectiveEffort);
+
     if (schema) {
       args.push('--json-schema', JSON.stringify(schema));
     }
+
+    // Suporta tanto desestruturação { args, effectiveEffort } quanto array direto
+    args.args = args;
+    args.effectiveEffort = effectiveEffort;
     return args;
   }
 
   /**
    * Monta os argumentos de linha de comando específicos para o Google Antigravity CLI (`agy`)
    */
-  buildAntigravityArgs({ prompt, model, effort, acceptEdits, schema, boost = false, stream = false }) {
+  buildAntigravityArgs({ prompt, model, effort, acceptEdits, schema, boost = false, stream = false, resumeId = null }) {
+    const effectiveEffort = this.getEffectiveEffort('antigravity', effort);
     const effectivePrompt =
-      (boost || effort === 'xhigh' || effort === 'ultracode') && !prompt.startsWith('/boost')
+      (boost || effectiveEffort === 'xhigh' || effort === 'ultracode') && !prompt.startsWith('/boost')
         ? `/boost ${prompt}`
         : prompt;
 
@@ -410,9 +487,17 @@ export class DualEngineAdapter extends EventEmitter {
     if (model) {
       args.push('--model', model);
     }
+    if (resumeId) {
+      args.push('--conversation-id', resumeId);
+    }
+    args.push('--effort', effectiveEffort);
+
     if (schema) {
       args.push('--json-schema', JSON.stringify(schema));
     }
+
+    args.args = args;
+    args.effectiveEffort = effectiveEffort;
     return args;
   }
 
@@ -428,16 +513,18 @@ export class DualEngineAdapter extends EventEmitter {
       cwd: this.projectRoot,
       provider: targetProvider,
       effort,
-      acceptEdits: false
+      acceptEdits: false,
+      stream: false
     });
 
-    return this.stripMarkdownCodeences(typeof res.output === 'string' ? res.output : JSON.stringify(res.output));
+    return this.stripMarkdownCodeFences(typeof res.output === 'string' ? res.output : JSON.stringify(res.output));
   }
 
   /**
-   * 2ª Fase do Ultracode: Executa um subagente isolado via processo CLI (`claude` ou `agy`)
+   * 2ª Fase do Ultracode: Executa um subagente isolado via processo CLI com telemetria NDJSON ao vivo
    */
   async runAgent({
+    agentId = null,
     prompt,
     cwd = this.projectRoot,
     provider,
@@ -447,15 +534,20 @@ export class DualEngineAdapter extends EventEmitter {
     schema = null,
     signal = null,
     label = 'subagent',
-    phase = ''
+    phase = '',
+    stream = true,
+    resumeId = null
   }) {
     const resolvedProvider = this.resolveProvider({ provider, model, phase });
     const binary = resolvedProvider === 'antigravity' ? this.antigravityBin : this.claudeBin;
 
-    const args =
+    const claudeOrAgyArgs =
       resolvedProvider === 'antigravity'
-        ? this.buildAntigravityArgs({ prompt, model, effort, acceptEdits, schema })
-        : this.buildClaudeArgs({ prompt, model, effort, acceptEdits, schema });
+        ? this.buildAntigravityArgs({ prompt, model, effort, acceptEdits, schema, stream, resumeId })
+        : this.buildClaudeArgs({ prompt, model, effort, acceptEdits, schema, stream, resumeId });
+
+    const args = claudeOrAgyArgs.args || claudeOrAgyArgs;
+    const effectiveEffort = claudeOrAgyArgs.effectiveEffort || effort;
 
     return await new Promise((resolve, reject) => {
       if (signal?.aborted) {
@@ -470,12 +562,15 @@ export class DualEngineAdapter extends EventEmitter {
 
       let stdout = '';
       let stderr = '';
+      let lineBuffer = '';
+      let liveConversationId = resumeId;
+      let liveTokens = 0;
 
       const onAbort = () => {
         child.kill('SIGTERM');
         setTimeout(() => {
           if (!child.killed) child.kill('SIGKILL');
-        }, 1500);
+        }, 1200);
         reject(new Error('WORKFLOW_PAUSED'));
       };
 
@@ -486,11 +581,40 @@ export class DualEngineAdapter extends EventEmitter {
       child.stdout?.on('data', (chunk) => {
         const text = chunk.toString();
         stdout += text;
+        lineBuffer += text;
+
         this.emit('agent:stream', { label, provider: resolvedProvider, chunk: text });
+
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const telemetry = this.parseLiveStreamEvent(line, resolvedProvider);
+          if (telemetry.conversationId) liveConversationId = telemetry.conversationId;
+          if (telemetry.tokensDelta) liveTokens += telemetry.tokensDelta;
+
+          this.emit('agent:telemetry', {
+            agentId,
+            label,
+            provider: resolvedProvider,
+            effectiveEffort,
+            cwd,
+            ...telemetry
+          });
+        }
       });
 
       child.stderr?.on('data', (chunk) => {
-        stderr += chunk.toString();
+        const errText = chunk.toString();
+        stderr += errText;
+        this.emit('agent:telemetry', {
+          agentId,
+          label,
+          provider: resolvedProvider,
+          effectiveEffort,
+          type: 'stderr',
+          text: errText
+        });
       });
 
       child.on('error', (err) => {
@@ -511,12 +635,68 @@ export class DualEngineAdapter extends EventEmitter {
         const parsed = this.parseCliJsonEnvelope(stdout, resolvedProvider);
         resolve({
           provider: resolvedProvider,
+          effectiveEffort,
           output: parsed.output,
-          tokens: parsed.tokens,
-          conversationId: parsed.conversationId
+          tokens: parsed.tokens || liveTokens || 400,
+          conversationId: parsed.conversationId || liveConversationId,
+          cwd
         });
       });
     });
+  }
+
+  /**
+   * Extrai eventos em tempo real (chamadas de ferramenta, pensamentos, textos parciais) do stream-json
+   */
+  parseLiveStreamEvent(line, provider) {
+    const trimmed = line.trim();
+    if (!trimmed) return { type: 'empty', text: '' };
+
+    try {
+      const evt = JSON.parse(trimmed);
+      const conversationId = evt.session_id || evt.conversation_id || null;
+      const tokensDelta = (evt.usage?.input_tokens || 0) + (evt.usage?.output_tokens || 0);
+
+      // Deteta invocação de ferramentas (Bash, Edit, Read, etc.)
+      if (evt.type === 'tool_use' || evt.tool_name || evt.message?.content?.[0]?.type === 'tool_use') {
+        const toolBlock = evt.message?.content?.find((c) => c.type === 'tool_use') || evt;
+        return {
+          type: 'tool_use',
+          toolName: toolBlock.name || evt.tool_name || 'tool',
+          text: `[Tool: ${toolBlock.name || evt.tool_name}] ${JSON.stringify(toolBlock.input || {}).slice(0, 120)}`,
+          conversationId,
+          tokensDelta
+        };
+      }
+
+      // Deteta blocos de raciocínio (Extended Thinking / Boost Thinking)
+      if (evt.type === 'thinking' || evt.message?.content?.[0]?.type === 'thinking') {
+        const thinkBlock = evt.message?.content?.find((c) => c.type === 'thinking') || evt;
+        return {
+          type: 'thinking',
+          text: thinkBlock.thinking || thinkBlock.text || 'A raciocinar...',
+          conversationId,
+          tokensDelta
+        };
+      }
+
+      // Texto de resposta ou resultado final
+      const textContent =
+        evt.delta?.text ||
+        evt.message?.content?.find((c) => c.type === 'text')?.text ||
+        evt.response ||
+        evt.result ||
+        trimmed;
+
+      return {
+        type: evt.type || 'text',
+        text: typeof textContent === 'string' ? textContent : JSON.stringify(textContent),
+        conversationId,
+        tokensDelta
+      };
+    } catch (_) {
+      return { type: 'raw', text: trimmed };
+    }
   }
 
   /**
@@ -528,62 +708,81 @@ export class DualEngineAdapter extends EventEmitter {
       return { output: '', tokens: 0, conversationId: null };
     }
 
-    try {
-      const json = JSON.parse(trimmed);
+    const lines = trimmed.split('\n').map((l) => l.trim()).filter(Boolean);
+    let totalTokens = 0;
+    let lastConversationId = null;
 
-      if (provider === 'antigravity') {
-        const output =
-          json.structured_output !== undefined
-            ? json.structured_output
-            : (json.response ?? json.result ?? trimmed);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const evt = JSON.parse(lines[i]);
+        if (evt.session_id || evt.conversation_id) {
+          lastConversationId = evt.session_id || evt.conversation_id;
+        }
+        const usageTokens =
+          evt.usage?.total_tokens ||
+          (evt.usage?.input_tokens || 0) + (evt.usage?.output_tokens || 0) ||
+          evt.total_tokens ||
+          0;
+        if (usageTokens > totalTokens) totalTokens = usageTokens;
 
-        const tokens =
-          json.usage?.total_tokens ||
-          (json.usage?.input_tokens || 0) + (json.usage?.output_tokens || 0) ||
-          400;
-
-        return {
-          output,
-          tokens,
-          conversationId: json.conversation_id || null
-        };
-      }
-
-      const output =
-        json.structured_output !== undefined
-          ? json.structured_output
-          : (json.result ?? json.response ?? trimmed);
-
-      const tokens =
-        (json.usage?.input_tokens || 0) + (json.usage?.output_tokens || 0) ||
-        json.total_tokens ||
-        450;
-
-      return {
-        output,
-        tokens,
-        conversationId: json.session_id || null
-      };
-    } catch (_) {
-      // Caso o CLI devolva NDJSON ou texto plano, extrai a última linha JSON válida ou retorna o texto
-      const lines = trimmed.split('\n').map((l) => l.trim()).filter(Boolean);
-      for (let i = lines.length - 1; i >= 0; i--) {
-        try {
-          const evt = JSON.parse(lines[i]);
-          if (evt.structured_output !== undefined || evt.response || evt.result) {
-            return {
-              output: evt.structured_output !== undefined ? evt.structured_output : (evt.response || evt.result),
-              tokens: evt.usage?.total_tokens || 350,
-              conversationId: evt.conversation_id || evt.session_id || null
-            };
-          }
-        } catch (_) {}
-      }
-      return { output: trimmed, tokens: 300, conversationId: null };
+        if (evt.structured_output !== undefined || evt.result !== undefined || evt.response !== undefined) {
+          return {
+            output: evt.structured_output ?? evt.result ?? evt.response,
+            tokens: totalTokens || 420,
+            conversationId: lastConversationId
+          };
+        }
+      } catch (_) {}
     }
+
+    return { output: trimmed, tokens: totalTokens || 350, conversationId: lastConversationId };
   }
 
-  stripMarkdownCodeences(text) {
+  /**
+   * Executa um comando determinístico (ex: `npm test`, `eslint`, `tsc --noEmit`) dentro de uma worktree
+   */
+  async runDeterministicCommand(commandStr, { cwd = this.projectRoot, timeoutMs = 60000, signal = null } = {}) {
+    return await new Promise((resolve) => {
+      const child = spawn(commandStr, {
+        cwd,
+        shell: true,
+        env: { ...process.env, CI: 'true', FORCE_COLOR: '0' }
+      });
+
+      let stdout = '';
+      let stderr = '';
+      const timer = setTimeout(() => {
+        child.kill('SIGTERM');
+      }, timeoutMs);
+
+      const onAbort = () => {
+        clearTimeout(timer);
+        child.kill('SIGTERM');
+      };
+
+      if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
+      child.stdout?.on('data', (d) => {
+        stdout += d.toString();
+      });
+      child.stderr?.on('data', (d) => {
+        stderr += d.toString();
+      });
+
+      child.on('close', (exitCode) => {
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+        resolve({
+          ok: exitCode === 0,
+          exitCode: exitCode ?? 1,
+          stdout: stdout.trim(),
+          stderr: stderr.trim()
+        });
+      });
+    });
+  }
+
+  stripMarkdownCodeFences(text) {
     if (typeof text !== 'string') return String(text);
     const match = text.match(/```(?:javascript|js)?\s*([\s\S]*?)```/);
     return match ? match[1].trim() : text.trim();

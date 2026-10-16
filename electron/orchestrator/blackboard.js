@@ -42,7 +42,7 @@ export class BlackboardManager extends EventEmitter {
   // ==========================================================================
   // METODOS ULTRACODE / DYNAMIC WORKFLOWS
   // ==========================================================================
-  createRun({ id, prompt, script, meta }) {
+  createRun({ id, prompt, script, meta, maxTokensPerRun = 0 }) {
     const runState = {
       id,
       prompt,
@@ -53,6 +53,9 @@ export class BlackboardManager extends EventEmitter {
       totalAgentsSpawned: 0,
       activeAgentsCount: 0,
       tokensUsed: 0,
+      maxTokensPerRun: Number(maxTokensPerRun) || 0,
+      pauseReason: null,
+      sharedMemory: {},
       startedAt: Date.now(),
       finishedAt: null,
       agents: [], // Lista ordenada por inicio para regra de cache A -> B -> C -> D
@@ -139,6 +142,55 @@ export class BlackboardManager extends EventEmitter {
     const run = this.runs.get(runId);
     if (!run) return;
     run.currentPhase = phaseTitle;
+    this.emitUpdate(runId);
+  }
+
+  setMemory(runId, key, value) {
+    const run = this.runs.get(runId);
+    if (!run) return;
+    if (!run.sharedMemory) run.sharedMemory = {};
+    run.sharedMemory[key] = value;
+    this.emitUpdate(runId);
+  }
+
+  getMemory(runId, key) {
+    const run = this.runs.get(runId);
+    return run?.sharedMemory ? run.sharedMemory[key] : undefined;
+  }
+
+  appendAgentTelemetry(runId, agentIdOrEvent, maybeEvent = {}) {
+    const run = this.runs.get(runId);
+    if (!run) return;
+
+    const isObj = typeof agentIdOrEvent === 'object' && agentIdOrEvent !== null;
+    const targetAgentId = isObj ? agentIdOrEvent.agentId : agentIdOrEvent;
+    const event = isObj ? { ...agentIdOrEvent, ...maybeEvent } : maybeEvent;
+    if (!targetAgentId) return;
+
+    let ag = run.agents.find((a) => a.id === targetAgentId);
+    if (!ag) {
+      ag = {
+        id: targetAgentId,
+        label: event.label || targetAgentId,
+        status: 'running',
+        logs: []
+      };
+      run.agents.push(ag);
+    }
+
+    if (!ag.logs) ag.logs = [];
+    if (event.conversationId) ag.conversationId = event.conversationId;
+    if (event.cwd) ag.cwd = event.cwd;
+    if (event.effectiveEffort) ag.effectiveEffort = event.effectiveEffort;
+
+    if (event.text) {
+      ag.logs.push({
+        ts: Date.now(),
+        type: event.type || 'text',
+        text: typeof event.text === 'string' ? event.text.slice(0, 300) : JSON.stringify(event.text).slice(0, 300)
+      });
+      if (ag.logs.length > 40) ag.logs.shift(); // Mantem os ultimos 40 eventos por agente
+    }
     this.emitUpdate(runId);
   }
 
