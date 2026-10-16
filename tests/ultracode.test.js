@@ -5,10 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-import { BlackboardManager } from '../electron/orchestrator/blackboard.js';
-import { WorktreeManager } from '../electron/orchestrator/worktree-manager.js';
-import { ConcurrencySemaphore, UltracodeGates } from '../electron/orchestrator/gates.js';
-import { MaestroOrchestrator } from '../electron/orchestrator/maestro.js';
+import { BlackboardManager } from '../orchestrator/blackboard.js';
+import { WorktreeManager } from '../orchestrator/worktree-manager.js';
+import { ConcurrencySemaphore, UltracodeGates } from '../orchestrator/gates.js';
+import { MaestroOrchestrator } from '../orchestrator/maestro.js';
 
 describe('Ultracode Gates & Concurrency Semaphore', () => {
   test('ConcurrencySemaphore respects concurrency limits', async () => {

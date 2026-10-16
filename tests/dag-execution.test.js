@@ -7,8 +7,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
 
-import { MaestroOrchestrator } from '../electron/orchestrator/maestro.js';
-import { DualEngineAdapter } from '../electron/term.js';
+import { MaestroOrchestrator } from '../orchestrator/maestro.js';
+import { DualEngineAdapter } from '../orchestrator/term.js';
 
 describe('Maestro DAG End-to-End Execution', () => {
   let tmpRepo;

@@ -5,11 +5,11 @@ import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
 
-import { UltracodeGates } from '../electron/orchestrator/gates.js';
-import { WorktreeManager } from '../electron/orchestrator/worktree-manager.js';
-import { BlackboardManager } from '../electron/orchestrator/blackboard.js';
-import { MaestroOrchestrator } from '../electron/orchestrator/maestro.js';
-import { TerminalManager, DualEngineAdapter } from '../electron/term.js';
+import { UltracodeGates } from '../orchestrator/gates.js';
+import { WorktreeManager } from '../orchestrator/worktree-manager.js';
+import { BlackboardManager } from '../orchestrator/blackboard.js';
+import { MaestroOrchestrator } from '../orchestrator/maestro.js';
+import { TerminalManager, DualEngineAdapter } from '../orchestrator/term.js';
 
 describe('Autonomous Engineering Primitives & Circuit Breaker', () => {
   let tmpRepo;

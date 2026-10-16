@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import os from 'node:os';
-import { UltracodeGates } from './orchestrator/gates.js';
+import { UltracodeGates } from './gates.js';
 
 let pty = null;
 try {

@@ -16,6 +16,7 @@ archives/
 dist/
 build/
 out/
+src-tauri/target/
 
 # Environment variables & secrets
 .env

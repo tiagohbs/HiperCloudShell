@@ -5,11 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-import { stripAnsi, TerminalManager } from '../electron/term.js';
-import { BlackboardManager } from '../electron/orchestrator/blackboard.js';
-import { WorktreeManager } from '../electron/orchestrator/worktree-manager.js';
-import { QualityGateRunner } from '../electron/orchestrator/gates.js';
-import { MaestroOrchestrator } from '../electron/orchestrator/maestro.js';
+import { stripAnsi, TerminalManager } from '../orchestrator/term.js';
+import { BlackboardManager } from '../orchestrator/blackboard.js';
+import { WorktreeManager } from '../orchestrator/worktree-manager.js';
+import { QualityGateRunner } from '../orchestrator/gates.js';
+import { MaestroOrchestrator } from '../orchestrator/maestro.js';
 
 describe('Terminal Utilities & ANSI Stripper', () => {
   test('stripAnsi cleans terminal control sequences and colors', () => {
