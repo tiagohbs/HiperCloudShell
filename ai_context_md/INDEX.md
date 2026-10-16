@@ -7,7 +7,7 @@ Esta pasta contém a transcrição integral dos arquivos do núcleo em formato M
 | Arquivo MD | Arquivo Fonte Original | Linguagem | Descrição |
 |---|---|---|---|
 | **[`lib.rs.md`](lib.rs.md)** / [`00_rust_lib.md`](00_rust_lib.md) | `src-tauri/src/lib.rs` | rust | Ponto de entrada do runtime Tauri v2: inicialização de builders, estados e registro dos 20 handlers IPC. |
-| **[`01_rust_dual_engine.md`](01_rust_dual_engine.md)** | `src-tauri/src/dual_engine.rs` | rust | Adaptador Rust nativo para orquestrar Claude Code (`claude`) e Antigravity (`agy`). |
+| **[`dual_engine.rs.md`](dual_engine.rs.md)** / [`01_rust_dual_engine.md`](01_rust_dual_engine.md) | `src-tauri/src/dual_engine.rs` | rust | Adaptador Rust nativo para orquestrar Claude Code (`claude`) e Antigravity (`agy`) com schemas JSON unificados. |
 | **[`02_rust_pty_manager.md`](02_rust_pty_manager.md)** | `src-tauri/src/pty_manager.rs` | rust | Gerenciador PTY nativo (ConPTY no Windows) para spawn de sessões interativas e hot-takeover. |
 | **[`03_rust_blackboard.md`](03_rust_blackboard.md)** | `src-tauri/src/blackboard.rs` | rust | Blackboard, Merkle Replay Cache (SHA-256 DAG) e Circuit Breaker financeiro de tokens. |
 | **[`04_rust_commands.md`](04_rust_commands.md)** | `src-tauri/src/commands.rs` | rust | Handlers IPC do Tauri para Worktrees, PTY, Merkle Cache e Quality Gates. |
@@ -19,3 +19,4 @@ Esta pasta contém a transcrição integral dos arquivos do núcleo em formato M
 | **[`10_orchestrator_blackboard.md`](10_orchestrator_blackboard.md)** | `orchestrator/blackboard.js` | javascript | Memória compartilhada do DAG, injeção de Context Packs e templates em `.claude/workflows`. |
 | **[`11_frontend_tauri_bridge.md`](11_frontend_tauri_bridge.md)** | `src/tauri-bridge.js` | javascript | Ponte IPC (`window.ultracodeAPI`) conectando a UI aos módulos Rust e Node.js. |
 | **[`App.jsx.md`](App.jsx.md)** / [`12_frontend_app_jsx.md`](12_frontend_app_jsx.md) | `src/App.jsx` | javascript/jsx | Cockpit completo com Grid PTY, Mission Control e Estúdio Pixel Forge 3D interativo. |
+| **[`sidecar.js.md`](sidecar.js.md)** / [`13_orchestrator_sidecar.md`](13_orchestrator_sidecar.md) | `orchestrator/sidecar.js` | javascript | Processo Sidecar Node.js: execução CLI (`--detect`, `--plan`, `--run`) e streaming NDJSON ao vivo. |
