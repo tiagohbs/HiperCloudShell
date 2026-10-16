@@ -56,3 +56,23 @@ html, body, #root {
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #2E4F91;
 }
+
+/* ========================================================================== */
+/* DESIGN SYSTEM: APPLE HIG + MATERIAL 3 (LIMPO, MINIMALISTA, ZERO IA-SLOP)   */
+/* ========================================================================== */
+@layer components {
+  /* Botão Primário: Ouro acetinado nobre, plano, sem degradê berrante */
+  .btn-gold {
+    @apply bg-gold-500 hover:bg-gold-400 active:bg-gold-600 text-espresso-950 font-semibold px-4 py-2 rounded-xl border border-gold-400/80 dark:border-gold-500/50 shadow-sm transition duration-150 inline-flex items-center justify-center gap-1.5 cursor-pointer;
+  }
+
+  /* Botão Secundário: Neutro Apple com borda suave */
+  .btn-secondary {
+    @apply bg-beige-200/70 dark:bg-denim-800 hover:bg-beige-300/80 dark:hover:bg-denim-700 text-espresso-900 dark:text-denim-100 font-semibold px-4 py-2 rounded-xl border border-beige-300 dark:border-denim-700 shadow-sm transition duration-150 inline-flex items-center justify-center gap-1.5 cursor-pointer;
+  }
+
+  /* Botão Fantasma: Minimalista e limpo */
+  .btn-ghost {
+    @apply bg-transparent hover:bg-beige-200/60 dark:hover:bg-denim-800 text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50 font-medium px-3 py-1.5 rounded-lg transition duration-150 inline-flex items-center justify-center gap-1.5 cursor-pointer;
+  }
+}

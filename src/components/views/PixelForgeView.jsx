@@ -180,7 +180,7 @@ export default function PixelForgeView({
           <button
             type="button"
             onClick={() => setIsNewObjectModalOpen(true)}
-            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300 font-mono"
+            className="btn-gold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer font-mono"
             title="Gera uma nova malha 3D real via Blender BPY e Three.js"
           >
             <IconPlus className="w-3.5 h-3.5 text-espresso-950" />
@@ -197,7 +197,7 @@ export default function PixelForgeView({
                 onClick={() => setPixelForgeItem((prev) => ({ ...prev, zoomScale: z }))}
                 className={`px-2 py-0.5 text-[11px] font-mono rounded transition cursor-pointer font-bold ${
                   pixelForgeItem.zoomScale === z
-                    ? 'bg-gold-500 text-espresso-950 shadow-gold'
+                    ? 'btn-gold shadow-xs'
                     : 'text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50'
                 }`}
               >
@@ -213,7 +213,7 @@ export default function PixelForgeView({
               onClick={() => setPixelForgeItem((prev) => ({ ...prev, selectedTab: '3d-studio' }))}
               className={`px-3 py-1 rounded text-xs transition font-extrabold cursor-pointer flex items-center gap-1.5 ${
                 pixelForgeItem.selectedTab === '3d-studio'
-                  ? 'bg-gradient-to-r from-gold-500 to-amber-500 text-espresso-950 shadow-gold border border-gold-300'
+                  ? 'btn-gold shadow-xs'
                   : 'text-espresso-600 dark:text-denim-300 hover:text-espresso-950 dark:hover:text-denim-50'
               }`}
             >
@@ -225,7 +225,7 @@ export default function PixelForgeView({
               onClick={() => setPixelForgeItem((prev) => ({ ...prev, selectedTab: 'eight-views' }))}
               className={`px-3 py-1 rounded text-xs transition font-extrabold cursor-pointer flex items-center gap-1.5 ${
                 pixelForgeItem.selectedTab === 'eight-views'
-                  ? 'bg-gradient-to-r from-gold-500 to-amber-500 text-espresso-950 shadow-gold border border-gold-300'
+                  ? 'btn-gold shadow-xs'
                   : 'text-espresso-600 dark:text-denim-300 hover:text-espresso-950 dark:hover:text-denim-50'
               }`}
             >
@@ -342,7 +342,7 @@ export default function PixelForgeView({
                 <button
                   type="button"
                   onClick={onExportBlendMaster}
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300"
+                  className="btn-gold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                   <span>Exportar .blend Master</span>
@@ -469,7 +469,7 @@ export default function PixelForgeView({
                   <button
                     type="button"
                     onClick={() => setPixelForgeItem((prev) => ({ ...prev, selectedTab: 'eight-views' }))}
-                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-2 cursor-pointer border border-gold-300 font-mono"
+                    className="btn-gold px-4 py-2 rounded-lg text-xs flex items-center gap-2 cursor-pointer font-mono"
                   >
                     <IconPalette className="w-4 h-4 text-espresso-950" />
                     <span>Transportar para Pixel Forge (Quantizar em 8 Vistas) ➔</span>
@@ -560,7 +560,7 @@ export default function PixelForgeView({
                     <button
                       type="button"
                       onClick={onExportBlendMaster}
-                      className="flex-1 py-2.5 px-3 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center justify-center gap-2 font-mono cursor-pointer border border-gold-300"
+                      className="btn-gold flex-1 py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-2 font-mono cursor-pointer"
                     >
                       <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                       <span>Salvar .blend & Atualizar Diário</span>
@@ -620,7 +620,7 @@ export default function PixelForgeView({
                 <button
                   type="button"
                   onClick={onExportBlendMaster}
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300"
+                  className="btn-gold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                   <span>Exportar .blend Master</span>
@@ -779,7 +779,7 @@ export default function PixelForgeView({
                         }
                         className={`py-1.5 px-1 rounded-lg text-[10px] font-mono text-center font-extrabold transition cursor-pointer border ${
                           currentAngle === v.deg
-                            ? 'bg-gradient-to-r from-gold-500 to-amber-500 text-espresso-950 border-gold-300 shadow-gold'
+                            ? 'btn-gold shadow-xs'
                             : 'bg-beige-50 dark:bg-denim-800 hover:bg-beige-100 dark:hover:bg-denim-700 text-espresso-800 dark:text-denim-200 border-beige-300 dark:border-denim-700'
                         }`}
                       >
@@ -850,7 +850,7 @@ export default function PixelForgeView({
                   <button
                     type="button"
                     onClick={onExportBlendMaster}
-                    className="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center justify-center gap-2 font-mono cursor-pointer border border-gold-300"
+                    className="btn-gold w-full py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-2 font-mono cursor-pointer"
                   >
                     <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                     <span>Salvar Modelo .blend & Atualizar Diário</span>
@@ -960,7 +960,7 @@ export default function PixelForgeView({
                 <button
                   type="button"
                   onClick={() => setIsNewObjectModalOpen(true)}
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300 font-mono"
+                  className="btn-gold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer font-mono"
                 >
                   <IconPlus className="w-3.5 h-3.5 text-espresso-950" />
                   <span>+ Modelar Novo Objeto</span>
@@ -1054,7 +1054,7 @@ export default function PixelForgeView({
                           handleSelectObject(obj.id);
                           setPixelForgeItem((prev) => ({ ...prev, selectedTab: 'eight-views' }));
                         }}
-                        className="flex-1 py-1.5 px-2 rounded-lg bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-[11px] font-mono shadow-gold transition cursor-pointer flex items-center justify-center gap-1 border border-gold-300"
+                        className="btn-gold flex-1 py-1.5 px-2 rounded-lg text-[11px] font-mono cursor-pointer flex items-center justify-center gap-1"
                       >
                         <IconPalette className="w-3.5 h-3.5 text-espresso-950" />
                         <span>Forjar Pixel</span>
@@ -1170,7 +1170,7 @@ export default function PixelForgeView({
                         onClick={() => onApproveVariant(v.id)}
                         className={`w-full py-2 px-3 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer border ${
                           v.approved
-                            ? 'bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 text-espresso-950 shadow-gold border-gold-300'
+                            ? 'btn-gold shadow-xs'
                             : 'bg-beige-100 dark:bg-denim-800 hover:bg-gold-100 dark:hover:bg-denim-700 text-espresso-900 dark:text-denim-100 border-beige-300 dark:border-denim-700'
                         }`}
                       >
@@ -1226,7 +1226,7 @@ export default function PixelForgeView({
                       `Master 1024px exportado com sucesso para /dist/game/sprites/${activeObject.id}.png!`
                     )
                   }
-                  className="px-3.5 py-2 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300"
+                  className="btn-gold px-3.5 py-2 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                   <span>Exportar Master 1024px</span>
@@ -1345,7 +1345,7 @@ export default function PixelForgeView({
                 <button
                   type="button"
                   onClick={onRunPlaywrightTest}
-                  className="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center justify-center gap-2 font-mono cursor-pointer border border-gold-300"
+                  className="btn-gold w-full py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-2 font-mono cursor-pointer"
                 >
                   <IconZap className="w-3.5 h-3.5 text-espresso-950" />
                   <span>Re-executar Suíte Playwright</span>
@@ -1516,7 +1516,7 @@ export default function PixelForgeView({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition cursor-pointer border border-gold-300 flex items-center gap-1.5"
+                  className="btn-gold px-5 py-2 rounded-lg text-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <IconBox className="w-3.5 h-3.5 text-espresso-950" />
                   <span>Gerar Malha 3D Real</span>

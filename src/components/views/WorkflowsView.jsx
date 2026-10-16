@@ -1,5 +1,5 @@
 // src/components/views/WorkflowsView.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IconZap,
   IconTerminal,
@@ -34,6 +34,12 @@ export default function WorkflowsView({
   const [activeTab, setActiveTab] = useState('script'); // 'script' | 'agents' | 'result'
   const runsList = Object.values(workflowRuns);
   const activeRun = selectedRunId ? workflowRuns[selectedRunId] : runsList[0] || null;
+
+  useEffect(() => {
+    if (activeRun?.script && (!editingScript || editingScript.trim() === '')) {
+      setEditingScript(activeRun.script);
+    }
+  }, [activeRun?.id, activeRun?.script]);
 
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden bg-beige-100 dark:bg-denim-900 text-espresso-900 dark:text-denim-50 transition-colors duration-150">
@@ -158,7 +164,7 @@ export default function WorkflowsView({
                   <button
                     type="button"
                     onClick={() => onOpenApprovalGate(activeRun)}
-                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold flex items-center gap-1.5 transition cursor-pointer border border-gold-300"
+                    className="btn-gold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                     <span>Quality Gate & Aprovação</span>
@@ -179,7 +185,7 @@ export default function WorkflowsView({
                   <button
                     type="button"
                     onClick={() => onResumeRun(activeRun.id)}
-                    className="px-3 py-1.5 rounded-lg bg-gold-500 hover:bg-gold-400 text-xs font-extrabold text-espresso-950 transition cursor-pointer shadow-gold"
+                    className="btn-gold px-3 py-1.5 rounded-lg text-xs cursor-pointer"
                   >
                     Retomar (Cache)
                   </button>
@@ -244,7 +250,7 @@ export default function WorkflowsView({
                     )}
                   </div>
                   <textarea
-                    value={editingScript}
+                    value={editingScript || activeRun?.script || ''}
                     onChange={(e) => setEditingScript(e.target.value)}
                     disabled={activeRun.status !== 'pending_approval'}
                     rows={16}
@@ -258,8 +264,14 @@ export default function WorkflowsView({
                   {/* Agents list */}
                   <div className="space-y-2.5">
                     {(!activeRun.agents || activeRun.agents.length === 0) ? (
-                      <div className="p-8 text-center text-espresso-500 dark:text-denim-400 font-mono text-xs border border-dashed border-beige-300 dark:border-denim-750 rounded-xl bg-white dark:bg-denim-850">
-                        Nenhum subagente despachado para esta fase ainda.
+                      <div className="p-8 text-center text-espresso-600 dark:text-denim-300 font-mono text-xs border border-dashed border-beige-300 dark:border-denim-750 rounded-xl bg-white dark:bg-denim-850 space-y-2">
+                        <div className="font-bold text-espresso-950 dark:text-denim-100">
+                          Fase Ativa: {activeRun.currentPhase || 'Planejamento Inicial'}
+                        </div>
+                        <p className="text-[11px] text-espresso-500 dark:text-denim-400 max-w-md mx-auto">
+                          O orquestrador está estruturando o DAG de tarefas para esta missão.
+                          Subagentes aparecerão aqui com telemetria viva de tokens, worktree e ConPTY.
+                        </p>
                       </div>
                     ) : (
                       activeRun.agents.map((ag) => (
@@ -357,7 +369,7 @@ export default function WorkflowsView({
                         />
                         <button
                           type="submit"
-                          className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 text-espresso-950 font-bold text-xs transition cursor-pointer shadow-gold border border-gold-300"
+                          className="btn-gold px-4 py-1.5 rounded-lg text-xs cursor-pointer"
                         >
                           Enviar
                         </button>

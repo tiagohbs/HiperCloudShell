@@ -17,7 +17,8 @@ export default function ProjectsView({
   setActiveProject,
   onOpenNewWorkflow,
   onNavigate,
-  onLaunchSquadWithTask
+  onLaunchSquadWithTask,
+  onOpenProjectSelector
 }) {
   const [selectedSubTab, setSelectedSubTab] = useState('overview');
   const [syncStatus, setSyncStatus] = useState(null);
@@ -202,6 +203,15 @@ export default function ProjectsView({
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
+              onClick={() => onOpenProjectSelector ? onOpenProjectSelector() : null}
+              className="btn-gold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+              title="Trocar projeto ativo ou carregar pasta local/GitHub"
+            >
+              <span>🔄 Alternar Projeto</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleGitSync('pull')}
               disabled={isSyncing}
               className="px-3.5 py-2 rounded-xl bg-white dark:bg-denim-800 hover:bg-beige-200 dark:hover:bg-denim-750 text-espresso-950 dark:text-denim-100 border border-beige-300 dark:border-denim-700 font-bold text-xs flex items-center gap-2 transition cursor-pointer shadow-xs disabled:opacity-50"
@@ -222,7 +232,7 @@ export default function ProjectsView({
             <button
               type="button"
               onClick={onOpenNewWorkflow}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300"
+              className="btn-gold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <IconPlus className="w-3.5 h-3.5 text-espresso-950" />
               <span>Novo Workflow no Projeto</span>
@@ -450,7 +460,7 @@ export default function ProjectsView({
                         onOpenNewWorkflow();
                       }
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap self-end sm:self-auto border border-gold-300"
+                    className="btn-gold px-3.5 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap self-end sm:self-auto"
                   >
                     <IconZap className="w-3.5 h-3.5 text-espresso-950" />
                     <span>Disparar Squad</span>

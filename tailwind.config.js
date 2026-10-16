@@ -57,12 +57,12 @@ export default {
         }
       },
       boxShadow: {
-        'gold': '0 4px 14px 0 rgba(212, 168, 30, 0.35)',
-        'gold-lg': '0 8px 24px 0 rgba(212, 168, 30, 0.45)',
-        'warm': '0 4px 20px -2px rgba(30, 21, 15, 0.08)',
-        'warm-lg': '0 10px 30px -4px rgba(30, 21, 15, 0.12)',
-        'denim': '0 4px 20px -2px rgba(11, 19, 36, 0.5)',
-        'denim-lg': '0 10px 30px -4px rgba(11, 19, 36, 0.7)',
+        'gold': '0 1px 3px 0 rgba(182, 139, 18, 0.2), 0 1px 2px -1px rgba(182, 139, 18, 0.1)',
+        'gold-lg': '0 4px 12px -2px rgba(182, 139, 18, 0.25)',
+        'warm': '0 1px 3px 0 rgba(30, 21, 15, 0.06), 0 1px 2px -1px rgba(30, 21, 15, 0.04)',
+        'warm-lg': '0 6px 16px -3px rgba(30, 21, 15, 0.08)',
+        'denim': '0 1px 3px 0 rgba(11, 19, 36, 0.35)',
+        'denim-lg': '0 6px 16px -3px rgba(11, 19, 36, 0.5)',
       }
     },
   },

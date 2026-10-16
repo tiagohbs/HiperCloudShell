@@ -735,7 +735,7 @@ export default function NewWorkflowModal({
               <button
                 type="button"
                 onClick={() => setStep(step + 1)}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold hover:shadow-gold-lg transition cursor-pointer border border-gold-300 font-mono"
+                className="btn-gold px-5 py-2 rounded-xl text-xs cursor-pointer font-mono"
               >
                 Avançar →
               </button>
@@ -743,7 +743,7 @@ export default function NewWorkflowModal({
               <button
                 type="button"
                 onClick={handleConfirmSubmit}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold hover:shadow-gold-lg transition cursor-pointer flex items-center gap-2 border border-gold-300 font-mono"
+                className="btn-gold px-6 py-2.5 rounded-xl text-xs flex items-center gap-2 cursor-pointer font-mono"
               >
                 <IconZap className="w-4 h-4 text-espresso-950" />
                 <span>Disparar Workflow Autônomo</span>

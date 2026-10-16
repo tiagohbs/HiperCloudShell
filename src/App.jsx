@@ -7,6 +7,7 @@ import NewWorkflowModal from './components/NewWorkflowModal.jsx';
 import ApprovalGateModal from './components/ApprovalGateModal.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import NotificationsDrawer from './components/NotificationsDrawer.jsx';
+import ProjectSelectorModal from './components/ProjectSelectorModal.jsx';
 
 // Vistas Modulares (Abas de Navegação)
 import DashboardView from './components/views/DashboardView.jsx';
@@ -508,6 +509,7 @@ export default function App() {
   const [isApprovalGateOpen, setIsApprovalGateOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
   const [selectedApprovalRun, setSelectedApprovalRun] = useState(null);
 
   // Parâmetros Globais do Motor com Persistência Local e Sincronização
@@ -566,6 +568,69 @@ export default function App() {
       console.warn('Falha ao persistir activeProject:', e);
     }
   }, [activeProject]);
+
+  // Lista de Projetos Recentes e Salvos (Local / GitHub)
+  const [projectsList, setProjectsList] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hcs_projects_list');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        name: 'HiperCloudShell',
+        path: 'C:\\Users\\DEV\\Documents\\HiperCloudShell',
+        branch: 'main',
+        remoteUrl: 'https://github.com/tiagohbs/HiperCloudShell.git',
+        isGit: true,
+        lastAccessed: Date.now()
+      },
+      {
+        name: 'cloudshell-hub',
+        path: 'C:\\Users\\DEV\\Documents\\cloudshell-hub',
+        branch: 'main',
+        remoteUrl: 'https://github.com/tiagohbs/cloudshell-hub',
+        isGit: true,
+        lastAccessed: Date.now() - 3600000
+      },
+      {
+        name: 'Buscador-e-visualizador-de-TEXTURA-PBR',
+        path: 'C:\\Users\\DEV\\Documents\\Buscador-e-visualizador-de-TEXTURA-PBR',
+        branch: 'main',
+        remoteUrl: 'https://github.com/tiagohbs/Buscador-e-visualizador-de-TEXTURA-PBR',
+        isGit: true,
+        lastAccessed: Date.now() - 7200000
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hcs_projects_list', JSON.stringify(projectsList));
+    } catch (e) {
+      console.warn('Falha ao persistir projectsList:', e);
+    }
+  }, [projectsList]);
+
+  const handleSelectProject = (project) => {
+    setActiveProject(project);
+    setProjectsList((prev) =>
+      prev.map((p) => (p.path === project.path ? { ...p, lastAccessed: Date.now() } : p))
+    );
+  };
+
+  const handleAddProject = (newProj) => {
+    setProjectsList((prev) => {
+      const exists = prev.some((p) => p.path === newProj.path || p.name === newProj.name);
+      if (exists) {
+        return prev.map((p) => (p.path === newProj.path ? { ...p, ...newProj, lastAccessed: Date.now() } : p));
+      }
+      return [newProj, ...prev];
+    });
+  };
+
+  const handleRemoveProject = (projectPath) => {
+    setProjectsList((prev) => prev.filter((p) => p.path !== projectPath));
+  };
 
   // Hook inicial para consultar o contexto real do projeto via Tauri IPC
   useEffect(() => {
@@ -1081,21 +1146,43 @@ export default function App() {
 
     // Fallback Mock
     const mockRunId = `wf_custom_${Date.now()}`;
+    const defaultScript = `// Dynamic Workflow Gerado\nphase("Planejamento & Contratos");\nawait agent("Analisar requisitos e contratos Zod");\nphase("Implementação Isolada");\nawait agent("Codificar em worktree isolada");\nphase("Quality Gate & Verificação");\nawait verifyCmd("npm test");\nreturn "sucesso";`;
     const mockRun = {
       id: mockRunId,
       prompt: customPrompt,
-      script: `// Dynamic Workflow Gerado\nphase("Planejamento");\nawait agent("Analisar requisitos e contratos Zod");\nphase("Implementação");\nawait agent("Codificar em worktree isolada");\nreturn "sucesso";`,
-      meta: { name: 'Workflow Personalizado', description: customPrompt, phases: [] },
+      script: defaultScript,
+      meta: { name: 'Workflow Personalizado', description: customPrompt, phases: ['Planejamento & Contratos', 'Implementação Isolada', 'Quality Gate & Verificação'] },
       status: 'pending_approval',
-      currentPhase: 'Planejamento',
-      activeAgentsCount: 1,
-      totalAgentsSpawned: 1,
+      currentPhase: 'Planejamento & Contratos',
+      activeAgentsCount: 2,
+      totalAgentsSpawned: 2,
       tokensUsed: 800,
-      agents: []
+      agents: [
+        {
+          id: 'ag-plan-1',
+          label: 'Especialista em Planejamento & DAG',
+          phase: 'Planejamento & Contratos',
+          provider: provider === 'hybrid' ? 'antigravity' : provider,
+          effectiveEffort: effort || 'ultracode',
+          status: 'running',
+          tokens: 450,
+          logs: [{ text: `[Antigravity CLI] Analisando requisitos para: ${customPrompt}` }]
+        },
+        {
+          id: 'ag-code-1',
+          label: 'Engenheiro de Implementação',
+          phase: 'Implementação Isolada',
+          provider: provider === 'hybrid' ? 'claude' : provider,
+          effectiveEffort: effort || 'ultracode',
+          status: 'pending',
+          tokens: 350,
+          logs: [{ text: `[Claude Code CLI] Aguardando conclusão do planejamento em .worktrees/` }]
+        }
+      ]
     };
     setWorkflowRuns((prev) => ({ ...prev, [mockRunId]: mockRun }));
     setSelectedRunId(mockRunId);
-    setEditingScript(mockRun.script);
+    setEditingScript(defaultScript);
     setActiveView('workflows');
   };
 
@@ -1504,6 +1591,7 @@ export default function App() {
           unreadNotificationsCount={notifications.filter((n) => !n.acknowledged).length}
           onToggleNotifications={() => setIsNotificationsOpen(true)}
           onOpenNewWorkflow={() => handleOpenNewWorkflowWithPrompt()}
+          onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
           theme={theme}
           onToggleTheme={handleToggleTheme}
           activeProject={activeProject}
@@ -1529,6 +1617,7 @@ export default function App() {
               improvements={improvements}
               notifications={notifications}
               activeProject={activeProject}
+              onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
             />
           )}
 
@@ -1539,6 +1628,7 @@ export default function App() {
               onOpenNewWorkflow={handleOpenNewWorkflowWithPrompt}
               onNavigate={setActiveView}
               onLaunchSquadWithTask={handleLaunchSquadWithTask}
+              onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
             />
           )}
 
@@ -1679,6 +1769,16 @@ export default function App() {
         onClearAll={handleClearAllNotifications}
         onRestoreNotification={handleRestoreNotification}
         onPurgeHistory={handlePurgeNotificationHistory}
+      />
+
+      <ProjectSelectorModal
+        isOpen={isProjectSelectorOpen}
+        onClose={() => setIsProjectSelectorOpen(false)}
+        activeProject={activeProject}
+        onSelectProject={handleSelectProject}
+        projectsList={projectsList}
+        onAddProject={handleAddProject}
+        onRemoveProject={handleRemoveProject}
       />
     </div>
   );

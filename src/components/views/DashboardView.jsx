@@ -26,7 +26,8 @@ export default function DashboardView({
   squadCatalog = [],
   improvements = {},
   notifications = [],
-  activeProject = null
+  activeProject = null,
+  onOpenProjectSelector = null
 }) {
   const runsList = Object.values(workflowRuns);
   const activeRunsCount = runsList.filter((r) => r.status === 'running').length;
@@ -63,7 +64,7 @@ export default function DashboardView({
             <button
               type="button"
               onClick={onOpenNewWorkflow}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold hover:shadow-gold-lg flex items-center justify-center gap-2 transition-all duration-200 group cursor-pointer border border-gold-300"
+              className="btn-gold px-5 py-3 rounded-xl text-xs flex items-center justify-center gap-2 group cursor-pointer"
             >
               <IconPlus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200 text-espresso-950" />
               <span>Iniciar Novo Workflow</span>
@@ -117,10 +118,19 @@ export default function DashboardView({
         <div className="flex items-center gap-2.5 flex-shrink-0">
           <button
             type="button"
+            onClick={() => onOpenProjectSelector ? onOpenProjectSelector() : (onNavigate && onNavigate('projects'))}
+            className="btn-gold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            title="Alternar o projeto ativo ou carregar uma pasta/repositório"
+          >
+            <span>🔄 Alternar Projeto</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => onNavigate && onNavigate('projects')}
             className="px-4 py-2 rounded-xl bg-beige-200/80 dark:bg-denim-800 hover:bg-gold-100 dark:hover:bg-denim-750 text-espresso-950 dark:text-denim-100 font-bold text-xs border border-beige-300 dark:border-denim-700 transition cursor-pointer flex items-center gap-2 shadow-xs group"
           >
-            <span>Gerenciar Repositório & Issues</span>
+            <span>Repositório & Issues</span>
             <span className="group-hover:translate-x-0.5 transition-transform">→</span>
           </button>
         </div>
@@ -225,7 +235,7 @@ export default function DashboardView({
                   <button
                     type="button"
                     onClick={onOpenNewWorkflow}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 text-espresso-950 font-extrabold text-xs shadow-gold transition cursor-pointer inline-flex items-center gap-2 border border-gold-300"
+                    className="btn-gold px-4 py-2 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer"
                   >
                     <IconPlus className="w-3.5 h-3.5 text-espresso-950" />
                     <span>Lançar Primeiro Workflow</span>
@@ -270,7 +280,7 @@ export default function DashboardView({
                               if (onSelectRun) onSelectRun(run.id);
                               if (onOpenApprovalGate) onOpenApprovalGate(run);
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold flex items-center gap-1.5 transition cursor-pointer border border-gold-300"
+                            className="btn-gold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 cursor-pointer"
                           >
                             <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
                             <span>Aprovar & Merge</span>

@@ -16,6 +16,7 @@ export default function Header({
   unreadNotificationsCount = 0,
   onToggleNotifications,
   onOpenNewWorkflow,
+  onOpenProjectSelector,
   theme = 'light',
   onToggleTheme,
   activeProject,
@@ -65,12 +66,12 @@ export default function Header({
     <header className="h-14 flex-shrink-0 bg-white/80 dark:bg-denim-950/80 border-b border-beige-300 dark:border-denim-800 px-4 flex items-center justify-between gap-4 backdrop-blur-md z-20 select-none transition-colors duration-150">
       {/* Left: Dynamic Breadcrumb & Active Project Chip */}
       <div className="flex items-center gap-3">
-        {/* Active Project Pill (Apple HIG Style) */}
+        {/* Active Project Pill (Apple HIG Style com Troca Rápida de Projeto) */}
         <button
           type="button"
-          onClick={() => onNavigate && onNavigate('projects')}
+          onClick={() => onOpenProjectSelector ? onOpenProjectSelector() : (onNavigate && onNavigate('projects'))}
           className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-beige-200/70 dark:bg-denim-850 border border-beige-300 dark:border-denim-700 text-xs font-mono transition-all hover:border-gold-400 hover:shadow-xs cursor-pointer group"
-          title="Ver Detalhes do Projeto e Repositório GitHub"
+          title="Clique para alternar o projeto focado ou carregar pasta local/GitHub"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-extrabold text-espresso-950 dark:text-denim-50 group-hover:text-gold-700 dark:group-hover:text-gold-400">
@@ -79,6 +80,9 @@ export default function Header({
           <span className="text-espresso-400 dark:text-denim-500">•</span>
           <span className="text-gold-800 dark:text-gold-300 font-bold">
              {activeProject?.branch || 'main'}
+          </span>
+          <span className="text-[10px] text-espresso-600 dark:text-denim-300 bg-white dark:bg-denim-800 px-1.5 py-0.5 rounded border border-beige-300 dark:border-denim-700 font-bold ml-0.5">
+            Trocar ▾
           </span>
         </button>
 
@@ -178,7 +182,7 @@ export default function Header({
             onClick={() => onChangeProvider('hybrid')}
             className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition cursor-pointer ${
               provider === 'hybrid'
-                ? 'bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 text-espresso-950 font-extrabold shadow-gold border border-gold-300'
+                ? 'btn-gold shadow-xs'
                 : 'text-espresso-700 dark:text-denim-300 hover:text-espresso-950 dark:hover:text-denim-50'
             }`}
           >
@@ -204,7 +208,7 @@ export default function Header({
             onClick={() => onToggleEffort('ultracode')}
             className={`px-2 py-1 text-[10px] font-mono rounded-md transition cursor-pointer flex items-center gap-1 ${
               effort === 'ultracode'
-                ? 'bg-gradient-to-r from-gold-500 to-amber-500 text-espresso-950 font-extrabold shadow-gold'
+                ? 'btn-gold shadow-xs'
                 : 'text-espresso-600 dark:text-denim-400 hover:text-espresso-950 dark:hover:text-denim-50'
             }`}
           >
@@ -232,7 +236,7 @@ export default function Header({
         <button
           type="button"
           onClick={onOpenNewWorkflow}
-          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold hover:shadow-gold-lg transition cursor-pointer border border-gold-300"
+          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-gold text-xs cursor-pointer"
         >
           <IconPlus className="w-3.5 h-3.5 text-espresso-950" />
           <span>Novo</span>

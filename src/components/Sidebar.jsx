@@ -65,7 +65,7 @@ export default function Sidebar({
         {/* Brand Header */}
         <div className="p-4 border-b border-beige-300 dark:border-denim-800 flex items-center justify-between bg-beige-100/60 dark:bg-denim-900/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 via-gold-500 to-amber-600 flex items-center justify-center shadow-gold font-extrabold text-espresso-950 text-sm border border-gold-300">
+            <div className="w-8 h-8 rounded-lg bg-gold-500 flex items-center justify-center font-extrabold text-espresso-950 text-sm border border-gold-400/80 shadow-xs">
               H
             </div>
             <div>
@@ -73,7 +73,7 @@ export default function Sidebar({
                 <span className="font-extrabold text-xs uppercase tracking-wider text-espresso-950 dark:text-denim-50">
                   HiperCloudShell
                 </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-gold-200/60 dark:bg-gold-950/70 text-gold-800 dark:text-gold-300 font-mono font-bold border border-gold-300 dark:border-gold-700">
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-gold-100 dark:bg-gold-950/70 text-gold-900 dark:text-gold-300 font-mono font-bold border border-gold-300 dark:border-gold-700">
                   ADE
                 </span>
               </div>
@@ -82,12 +82,12 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Global Primary Action Button: "+ Novo Workflow" (Dourado Brilhante) */}
+        {/* Global Primary Action Button: "+ Novo Workflow" (Design Minimalista Apple / Material) */}
         <div className="p-3">
           <button
             type="button"
             onClick={onOpenNewWorkflow}
-            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold hover:shadow-gold-lg flex items-center justify-between transition-all duration-200 group cursor-pointer border border-gold-300"
+            className="w-full py-2.5 px-3 rounded-xl bg-gold-500 hover:bg-gold-400 active:bg-gold-600 text-espresso-950 font-semibold text-xs border border-gold-400/80 dark:border-gold-500/50 shadow-xs flex items-center justify-between transition-all duration-150 group cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <IconPlus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200 text-espresso-950" />

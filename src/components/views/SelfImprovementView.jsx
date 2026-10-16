@@ -91,7 +91,7 @@ export default function SelfImprovementView({
                 onClick={() => updateSelfImprovementConfig({ preferredEngine: 'hybrid' })}
                 className={`py-1 rounded font-mono text-[11px] transition cursor-pointer font-extrabold ${
                   selfImpConfig.preferredEngine === 'hybrid'
-                    ? 'bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 text-espresso-950 shadow-gold border border-gold-300'
+                    ? 'btn-gold shadow-xs'
                     : 'text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50'
                 }`}
               >
@@ -140,7 +140,7 @@ export default function SelfImprovementView({
               <button
                 type="button"
                 onClick={() => handleTriggerCloudShellImprovement()}
-                className="px-3.5 py-1 bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 rounded-lg text-xs font-extrabold shadow-gold transition font-mono whitespace-nowrap cursor-pointer border border-gold-300"
+                className="btn-gold px-3.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap cursor-pointer"
               >
                 Disparar
               </button>
@@ -245,7 +245,7 @@ export default function SelfImprovementView({
                   onClick={() => {
                     if (onMergeImprovement) onMergeImprovement(activeImp);
                   }}
-                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-xs font-extrabold text-espresso-950 shadow-gold cursor-pointer border border-gold-300"
+                  className="btn-gold px-3.5 py-1.5 rounded-lg text-xs cursor-pointer"
                 >
                   ✓ Fazer Merge da Melhoria na Main
                 </button>
@@ -292,7 +292,7 @@ export default function SelfImprovementView({
                 />
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 text-espresso-950 font-extrabold text-xs cursor-pointer shadow-gold border border-gold-300"
+                  className="btn-gold px-4 py-1.5 rounded-lg text-xs cursor-pointer"
                 >
                   Ajustar Agente
                 </button>

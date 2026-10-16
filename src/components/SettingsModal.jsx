@@ -272,7 +272,7 @@ export default function SettingsModal({
                     className={`px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap border shadow-xs ${
                       unlimitedTokens
                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-700/20'
-                        : 'bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 border-gold-300 shadow-gold'
+                        : 'btn-gold'
                     }`}
                   >
                     {unlimitedTokens ? '🔒 Reativar Teto Máximo' : '♾️ Desativar Teto Máximo'}
@@ -377,7 +377,7 @@ export default function SettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-bold text-xs shadow-gold transition cursor-pointer border border-gold-300"
+            className="btn-gold px-5 py-2 rounded-xl text-xs cursor-pointer"
           >
             Fechar
           </button>
