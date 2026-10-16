@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "test": "node --test"
+    "test": "node --test",
+    "mcp:stitch": "node scripts/sync-stitch-mcp.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.2.0",
