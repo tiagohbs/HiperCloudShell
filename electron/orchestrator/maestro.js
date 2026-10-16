@@ -330,7 +330,7 @@ return await agent(
             schema: agentOptions.schema,
             label: agentOptions.label,
             phase: agentOptions.phase || run.currentPhase,
-            effort,
+            effort: agentOptions.effort || effort,
             acceptEdits: true,
             signal: abortController.signal
           });
@@ -565,6 +565,33 @@ return await agent(
       get: (key) => this.blackboard.getMemory(runId, key)
     });
 
+    /**
+     * Primitiva harness(config): Inspirada no Overclock.sh.
+     * Empacota { role, provider, model, effort, skills, isolation, schema } num especialista pronto.
+     */
+    const harness = (harnessConfig = {}) => {
+      return async (taskPrompt, overrideOpts = {}) => {
+        const mergedOpts = { ...harnessConfig, ...overrideOpts };
+        const roleHeader = mergedOpts.role ? `[ROLE: ${mergedOpts.role}]\n` : '';
+        const skillsHeader =
+          Array.isArray(mergedOpts.skills) && mergedOpts.skills.length > 0
+            ? `[ACTIVE SKILLS / RULES: ${mergedOpts.skills.join(', ')}]\n`
+            : '';
+
+        // Respeita o effort específico do Harness (que depois passa pelo clamp global do provedor em gates.js)
+        const fullPrompt = `${roleHeader}${skillsHeader}\n${taskPrompt}`;
+        return await agent(fullPrompt, {
+          label: mergedOpts.label || mergedOpts.role || 'harness-agent',
+          phase: mergedOpts.phase || run.currentPhase,
+          provider: mergedOpts.provider,
+          model: mergedOpts.model,
+          effort: mergedOpts.effort || effort,
+          isolation: mergedOpts.isolation || 'none',
+          schema: mergedOpts.schema || null
+        });
+      };
+    };
+
     // Proibe import() ou require() no script gerado para blindagem
     if (/\bimport\s*\(/.test(run.script) || /^\s*import\s+/m.test(run.script)) {
       run.status = 'failed';
@@ -578,6 +605,7 @@ return await agent(
 
     const sandbox = Object.freeze({
       agent,
+      harness,
       pipeline,
       parallel,
       phase,
@@ -585,7 +613,7 @@ return await agent(
       consensus,
       speculate,
       memory,
-      args: Object.freeze({ ...args }),
+      args: typeof args === 'object' && args !== null ? Object.freeze({ ...args }) : args,
       JSON,
       Math,
       Date,

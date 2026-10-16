@@ -165,6 +165,75 @@ Se exit code == 0, imprima exatamente \`<<MAESTRO_TASK_DONE>>\` no stdout e ence
 }
 
 // ============================================================================
+// CATÁLOGO CANÔNICO DE SQUADS & TEMPLATES (INSPIRADO NO OVERCLOCK.SH)
+// ============================================================================
+const DEFAULT_SQUAD_CATALOG = [
+  {
+    slug: 'qa-mutation-hunter',
+    command: '/qa-mutation-hunter',
+    category: 'Qualidade & Testes',
+    title: '🧬 Mutation Testing Hunter',
+    recommendedEffort: { claude: 'high', antigravity: 'medium' },
+    description:
+      'Injeta mutações semânticas em worktrees isoladas, descobre falhas que a suite atual deixa passar e escreve testes que matam os mutantes sobreviventes.'
+  },
+  {
+    slug: 'qa-e2e-visual-healer',
+    command: '/qa-e2e-visual-healer',
+    category: 'Qualidade & Testes',
+    title: '🎭 E2E Playwright + Auto-Healer',
+    recommendedEffort: { claude: 'high', antigravity: 'low' },
+    description:
+      'Mapeia fluxos críticos de UI, gera testes E2E resilientes, valida regressão visual e auto-corrige seletores quebrados.'
+  },
+  {
+    slug: 'qa-chaos-fuzzer',
+    command: '/qa-chaos-fuzzer',
+    category: 'Qualidade & Testes',
+    title: '🌪️ Chaos & Property-Based Fuzzer',
+    recommendedEffort: { claude: 'medium', antigravity: 'high' },
+    description:
+      'Ataca funções e canais IPC com invariantes matemáticos, inputs malformados, race conditions e cancelamentos abruptos.'
+  },
+  {
+    slug: 'squad-frontend-cinema',
+    command: '/squad-frontend-cinema',
+    category: 'Frontend & UX',
+    title: '🎬 Cinema Frontend Squad',
+    recommendedEffort: { claude: 'high', antigravity: 'medium' },
+    description:
+      'Extrai DNA visual de referência, constrói seções em paralelo com animações fluidas, copy de alta conversão e valida acessibilidade WCAG.'
+  },
+  {
+    slug: 'squad-backend-fortress',
+    command: '/squad-backend-fortress',
+    category: 'Backend & Infra',
+    title: '⚙️ Backend Fortress & Race-Condition Killer',
+    recommendedEffort: { claude: 'high', antigravity: 'medium' },
+    description:
+      'Projeta APIs/IPC de baixa latência, compete duas implementações em worktrees isoladas via speculate() e escolhe a mais rápida nos testes.'
+  },
+  {
+    slug: 'squad-3d-shader-studio',
+    command: '/squad-3d-shader-studio',
+    category: '3D, Shaders & WebGL',
+    title: '🧊 3D WebGL & GLSL Shader Studio',
+    recommendedEffort: { claude: 'high', antigravity: 'high' },
+    description:
+      'Cria cenas Three.js / React Three Fiber com Vertex/Fragment Shaders GLSL customizados, física e Gate de 60 FPS (zero memory leaks de GPU).'
+  },
+  {
+    slug: 'squad-cybersec-purple-team',
+    command: '/squad-cybersec-purple-team',
+    category: 'Cyber Segurança',
+    title: '🛡️ CyberSec Purple Team (Exploit & Patch)',
+    recommendedEffort: { claude: 'high', antigravity: 'high' },
+    description:
+      'Antigravity mapeia superfícies de ataque, Claude Red Team tenta provar o exploit e o Blue Team aplica o patch validado.'
+  }
+];
+
+// ============================================================================
 // COMPONENTE PRINCIPAL
 // ============================================================================
 export default function App() {
@@ -173,6 +242,11 @@ export default function App() {
   const [effort, setEffort] = useState('ultracode'); // 'high' | 'ultracode'
   const [provider, setProvider] = useState('hybrid'); // 'claude' | 'antigravity' | 'hybrid'
   const [dismissedKeyword, setDismissedKeyword] = useState(false);
+
+  // Estados Squad Catalog (Overclock.sh Harness)
+  const [squadCatalog, setSquadCatalog] = useState(DEFAULT_SQUAD_CATALOG);
+  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [providerMaxEffort, setProviderMaxEffort] = useState({ claude: 'xhigh', antigravity: 'high' });
 
   // Estados Ultracode Workflows & Hot-Takeover
   const [workflowRuns, setWorkflowRuns] = useState({});
@@ -269,6 +343,62 @@ export default function App() {
       };
     }
   }, []);
+
+  // Carrega o Catálogo Oficial de Squads & Templates
+  useEffect(() => {
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.getSquadCatalog) {
+      bridge.getSquadCatalog().then((catalog) => {
+        if (Array.isArray(catalog) && catalog.length > 0) {
+          setSquadCatalog(catalog);
+        }
+      });
+    }
+  }, []);
+
+  const handleSelectSquad = async (squad) => {
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (!bridge?.launchSquad) {
+      const mockRunId = `wf_squad_${Date.now()}`;
+      const mockRun = {
+        id: mockRunId,
+        prompt: `${squad.title}: ${squad.description}`,
+        script: squad.script || `// Workflow montado para ${squad.title}\nphase("${squad.title}");\nawait agent("Executar plano do Squad");\nreturn "concluído";`,
+        meta: { name: squad.slug, description: squad.description, phases: [] },
+        status: 'pending_approval',
+        currentPhase: 'Harness Armado',
+        activeAgentsCount: 0,
+        totalAgentsSpawned: 0,
+        tokensUsed: 0,
+        agents: []
+      };
+      setWorkflowRuns((prev) => ({ ...prev, [mockRunId]: mockRun }));
+      setSelectedRunId(mockRunId);
+      setEditingScript(mockRun.script);
+      setActiveView('workflows');
+      return;
+    }
+
+    const res = await bridge.launchSquad(squad.slug, prompt, true);
+    if (res?.appliedCaps) {
+      setProviderMaxEffort(res.appliedCaps);
+    }
+    if (res?.run) {
+      setWorkflowRuns((prev) => ({ ...prev, [res.run.id]: res.run }));
+      setSelectedRunId(res.run.id);
+      setEditingScript(res.run.script);
+      setActiveView('workflows');
+    }
+  };
+
+  const categories = useMemo(
+    () => ['Todos', ...new Set(squadCatalog.map((s) => s.category))],
+    [squadCatalog]
+  );
+  const visibleSquads =
+    selectedCategory === 'Todos'
+      ? squadCatalog
+      : squadCatalog.filter((s) => s.category === selectedCategory);
 
   useEffect(() => {
     return () => clearAllTimers();
@@ -579,6 +709,77 @@ export default function App() {
             </div>
           </div>
         </form>
+      </section>
+
+      {/* ====================================================================
+          ARSENAL DE SQUADS & TEMPLATES (HARNESS MONTADO)
+      ==================================================================== */}
+      <section className="border-b border-slate-800 bg-[#080b11] px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              🚀 Arsenal de Squads & Templates (Harness Montado)
+            </h2>
+            <p className="text-xs text-slate-400">
+              Escolha pelo resultado: cada Squad combina o CLI certo, a skill certa e o teto de esforço ideal.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-2.5 py-1 rounded-md text-xs transition ${
+                  selectedCategory === cat
+                    ? 'bg-violet-600 text-white font-semibold'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {visibleSquads.map((squad) => (
+            <div
+              key={squad.slug}
+              className="p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-violet-500/60 transition flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-400">
+                    {squad.category}
+                  </span>
+                  <code className="text-[10px] text-slate-500">{squad.command}</code>
+                </div>
+                <h3 className="text-xs font-bold text-slate-100 mb-1">{squad.title}</h3>
+                <p className="text-[11px] text-slate-400 line-clamp-3 mb-3">{squad.description}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5 mb-2 text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-orange-950/80 text-orange-300 border border-orange-800/60 font-mono">
+                    Claude: {squad.recommendedEffort?.claude}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60 font-mono">
+                    AGY: {squad.recommendedEffort?.antigravity}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSelectSquad(squad)}
+                  className="w-full py-1.5 rounded bg-slate-800 hover:bg-violet-600 text-xs font-semibold text-white transition"
+                >
+                  Montar Harness & Inspecionar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* ====================================================================

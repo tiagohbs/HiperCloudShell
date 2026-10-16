@@ -127,6 +127,39 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, customAdapter 
     return blackboard.saveWorkflowToDisk(runId, name);
   });
 
+  // Catálogo Oficial de Squads & Templates (Harness)
+  blackboard.seedDefaultTemplates();
+
+  ipcMain.handle('ultracode:get-squad-catalog', () => {
+    return blackboard.getSquadCatalog();
+  });
+
+  ipcMain.handle('ultracode:launch-squad', async (_event, { slug, customPrompt, applyRecommendedCaps }) => {
+    const catalog = blackboard.getSquadCatalog();
+    const squad = catalog.find((s) => s.slug === slug);
+    if (!squad) throw new Error(`Squad ${slug} não encontrado.`);
+
+    // Opcionalmente ajusta os tetos de esforço de Claude e Antigravity para o perfil ótimo do Squad
+    if (applyRecommendedCaps && squad.recommendedEffort) {
+      llmAdapter.setProviderMaxEffort('claude', squad.recommendedEffort.claude);
+      llmAdapter.setProviderMaxEffort('antigravity', squad.recommendedEffort.antigravity);
+    }
+
+    const runState = await maestro.prepareWorkflowRun(
+      customPrompt || `${squad.title}: ${squad.description}`,
+      {
+        customScript: squad.script,
+        args: { prompt: customPrompt || '' },
+        autoApprove: false
+      }
+    );
+
+    return {
+      run: runState,
+      appliedCaps: llmAdapter.providerMaxEffort
+    };
+  });
+
   // Endpoints de Terminal PTY (para rodar `claude` ou `agy` interativos ou Hot-Takeover)
   ipcMain.handle('ultracode:term-create', (_event, { termId, cwd }) =>
     termManager.createSession(termId, { cwd: cwd || projectRoot })

@@ -17,6 +17,9 @@ const ultracodeAPI = {
   takeoverAgentTerminal: (payload) => ipcRenderer.invoke('ultracode:term-takeover', payload),
   setTokenBudget: (runId, maxTokensPerRun) =>
     ipcRenderer.invoke('ultracode:set-token-budget', { runId, maxTokensPerRun }),
+  getSquadCatalog: () => ipcRenderer.invoke('ultracode:get-squad-catalog'),
+  launchSquad: (slug, customPrompt, applyRecommendedCaps = true) =>
+    ipcRenderer.invoke('ultracode:launch-squad', { slug, customPrompt, applyRecommendedCaps }),
   onWorkflowUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('ultracode:workflow-update', handler);

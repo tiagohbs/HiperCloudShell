@@ -287,4 +287,87 @@ return "done";
     assert.equal(pausedRun.status, 'paused');
     assert.ok(pausedRun.pauseReason.includes('Disjuntor financeiro ativado'));
   });
+
+  // ==========================================================================
+  // 7. HARNESS PRIMITIVE (OVERCLOCK.SH HARNESS ARMOR)
+  // ==========================================================================
+  test('Maestro harness(config) wraps subagents with roles, skills, effort, and provider', async () => {
+    let capturedAgentCall = null;
+    const mockAdapter = {
+      defaultProvider: 'hybrid',
+      async runAgent(opts) {
+        capturedAgentCall = opts;
+        return {
+          output: 'Harness validation passed',
+          tokens: 150
+        };
+      }
+    };
+
+    const maestro = new MaestroOrchestrator({
+      repoRoot: tmpRepo,
+      llmAdapter: mockAdapter
+    });
+
+    const harnessScript = `
+const secSpecialist = harness({
+  role: "AppSec Fortress",
+  provider: "claude",
+  effort: "high",
+  skills: ["owasp-top-10", "memory-safety"]
+});
+
+return await secSpecialist("Verificar integridade de entrada");
+`;
+
+    const runState = await maestro.prepareWorkflowRun('test harness', { customScript: harnessScript });
+    const result = await maestro.executeWorkflowRun(runState.id);
+
+    assert.equal(result, 'Harness validation passed');
+    assert.ok(capturedAgentCall);
+    assert.equal(capturedAgentCall.provider, 'claude');
+    assert.equal(capturedAgentCall.effort, 'high');
+    assert.equal(capturedAgentCall.label, 'AppSec Fortress');
+    assert.ok(capturedAgentCall.prompt.includes('[ROLE: AppSec Fortress]'));
+    assert.ok(capturedAgentCall.prompt.includes('[ACTIVE SKILLS / RULES: owasp-top-10, memory-safety]'));
+    assert.ok(capturedAgentCall.prompt.includes('Verificar integridade de entrada'));
+  });
+
+  // ==========================================================================
+  // 8. BUILTIN SQUAD TEMPLATES CATALOG & DISK SEEDING
+  // ==========================================================================
+  test('BlackboardManager seeds 7 Builtin Squad Templates to .claude/workflows and returns catalog', () => {
+    const bb = new BlackboardManager(tmpRepo);
+    const seeded = bb.seedDefaultTemplates();
+
+    const expectedSquads = [
+      'qa-mutation-hunter',
+      'qa-e2e-visual-healer',
+      'qa-chaos-fuzzer',
+      'squad-frontend-cinema',
+      'squad-backend-fortress',
+      'squad-3d-shader-studio',
+      'squad-cybersec-purple-team'
+    ];
+
+    for (const slug of expectedSquads) {
+      assert.ok(seeded[slug], `Template ${slug} deve estar no seed`);
+      const filePath = path.join(tmpRepo, '.claude', 'workflows', `${slug}.js`);
+      assert.ok(fs.existsSync(filePath), `Arquivo ${slug}.js deve existir em .claude/workflows`);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      assert.ok(fileContent.length > 50);
+    }
+
+    const catalog = bb.getSquadCatalog();
+    assert.equal(catalog.length, 7);
+    const mutationSquad = catalog.find((s) => s.slug === 'qa-mutation-hunter');
+    assert.ok(mutationSquad);
+    assert.equal(mutationSquad.command, '/qa-mutation-hunter');
+    assert.equal(mutationSquad.recommendedEffort.claude, 'high');
+    assert.equal(mutationSquad.recommendedEffort.antigravity, 'medium');
+
+    const cinemaSquad = catalog.find((s) => s.slug === 'squad-frontend-cinema');
+    assert.ok(cinemaSquad);
+    assert.equal(cinemaSquad.category, 'Frontend & UX');
+  });
 });
