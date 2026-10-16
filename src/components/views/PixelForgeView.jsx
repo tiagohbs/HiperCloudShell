@@ -3,7 +3,11 @@ import React from 'react';
 import {
   IconPalette,
   IconCheck,
-  IconZap
+  IconZap,
+  IconPlay,
+  IconPause,
+  IconRotate,
+  IconBox
 } from '../Icons.jsx';
 
 export default function PixelForgeView({
@@ -17,8 +21,21 @@ export default function PixelForgeView({
   onApproveVariant,
   onReplayDelta,
   onRunPlaywrightTest,
-  PixelSwordPreview
+  onExportBlendMaster,
+  onRender8Views,
+  onTestScratchpad,
+  PixelSwordPreview,
+  PixelModelPreview,
+  vistas8Config = []
 }) {
+  const isCapivara = pixelForgeItem.itemId === 'capivara';
+  const currentAngle = pixelForgeItem.currentAngle ?? 0;
+  const currentVista = (vistas8Config || []).find((v) => v.deg === currentAngle) || {
+    deg: currentAngle,
+    label: `${currentAngle}°`,
+    desc: 'Ângulo de visão ortogonal'
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-beige-100 dark:bg-denim-950 text-espresso-900 dark:text-denim-100 transition-colors duration-150">
       {/* Header Bar da Forja */}
@@ -36,43 +53,81 @@ export default function PixelForgeView({
                 squad-pixel-forge-3d
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950/70 border border-cyan-300 dark:border-cyan-700 text-cyan-800 dark:text-cyan-300 font-bold">
-                Quality Gate: PASSED
+                Blender 5.2 LTS • Câmera 24°
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gold-100 dark:bg-gold-950/70 border border-gold-300 dark:border-gold-700 text-gold-900 dark:text-gold-300 font-bold">
-                Merkle Replay: HIT (0 tokens)
+                Scratchpad: ATIVO (uv venv)
               </span>
             </div>
             <p className="text-[11px] text-espresso-600 dark:text-denim-300 font-mono mt-0.5">
-              Item: <strong className="text-espresso-950 dark:text-denim-100">{pixelForgeItem.itemId}</strong> • Lote:{' '}
+              Modelo ativo: <strong className="text-espresso-950 dark:text-denim-100 uppercase">{pixelForgeItem.itemId}</strong> • Lote:{' '}
               <strong className="text-espresso-950 dark:text-denim-100">{pixelForgeItem.lote}</strong> • Res:{' '}
               <strong className="text-espresso-950 dark:text-denim-100">{pixelForgeItem.iconHeightPx}px (Master: 1024px)</strong>
             </p>
           </div>
         </div>
 
-        {/* Controles de Zoom & Sub-abas */}
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Controles de Modelo, Zoom & Sub-abas */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Seletor de Modelo */}
+          <div className="flex items-center gap-1 bg-beige-200 dark:bg-denim-800 border border-beige-300 dark:border-denim-700 p-1 rounded-lg text-xs">
+            <button
+              type="button"
+              onClick={() => setPixelForgeItem((prev) => ({ ...prev, itemId: 'capivara' }))}
+              className={`px-2.5 py-1 text-[11px] font-mono rounded transition cursor-pointer font-bold ${
+                isCapivara
+                  ? 'bg-gold-500 text-espresso-950 shadow-gold'
+                  : 'text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50'
+              }`}
+            >
+              🐾 Capivara Mascote
+            </button>
+            <button
+              type="button"
+              onClick={() => setPixelForgeItem((prev) => ({ ...prev, itemId: 'espada_bambu' }))}
+              className={`px-2.5 py-1 text-[11px] font-mono rounded transition cursor-pointer font-bold ${
+                !isCapivara
+                  ? 'bg-gold-500 text-espresso-950 shadow-gold'
+                  : 'text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50'
+              }`}
+            >
+              ⚔️ Espada de Bambu
+            </button>
+          </div>
+
           {/* Zoom Selector */}
           <div className="flex items-center gap-1 bg-beige-200 dark:bg-denim-800 border border-beige-300 dark:border-denim-700 p-1 rounded-lg text-xs">
-            <span className="text-[10px] font-mono text-espresso-600 dark:text-denim-300 px-1.5 font-bold">Zoom Pixelated:</span>
-            {[1, 2, 5].map((z) => (
+            <span className="text-[10px] font-mono text-espresso-600 dark:text-denim-300 px-1.5 font-bold">Zoom:</span>
+            {[1, 2, 4].map((z) => (
               <button
                 key={z}
                 type="button"
                 onClick={() => setPixelForgeItem((prev) => ({ ...prev, zoomScale: z }))}
-                className={`px-2.5 py-0.5 text-[11px] font-mono rounded transition cursor-pointer font-bold ${
+                className={`px-2 py-0.5 text-[11px] font-mono rounded transition cursor-pointer font-bold ${
                   pixelForgeItem.zoomScale === z
                     ? 'bg-gold-500 text-espresso-950 shadow-gold'
                     : 'text-espresso-700 dark:text-denim-200 hover:text-espresso-950 dark:hover:text-denim-50'
                 }`}
               >
-                {z}× {z === 1 ? '(112px)' : z === 2 ? '(224px)' : '(560px)'}
+                {z}×
               </button>
             ))}
           </div>
 
           {/* Sub-abas */}
           <div className="flex items-center gap-1 bg-beige-200 dark:bg-denim-800 border border-beige-300 dark:border-denim-700 p-1 rounded-lg text-xs">
+            <button
+              type="button"
+              onClick={() => setPixelForgeItem((prev) => ({ ...prev, selectedTab: 'eight-views' }))}
+              className={`px-3 py-1 rounded text-xs transition font-extrabold cursor-pointer flex items-center gap-1 ${
+                pixelForgeItem.selectedTab === 'eight-views'
+                  ? 'bg-gradient-to-r from-gold-500 to-amber-500 text-espresso-950 shadow-gold border border-gold-300'
+                  : 'text-espresso-600 dark:text-denim-300 hover:text-espresso-950 dark:hover:text-denim-50'
+              }`}
+            >
+              <IconRotate className="w-3.5 h-3.5" />
+              <span>8 Vistas (360° / 24°)</span>
+            </button>
             <button
               type="button"
               onClick={() => setPixelForgeItem((prev) => ({ ...prev, selectedTab: 'variants' }))}
@@ -129,6 +184,355 @@ export default function PixelForgeView({
 
       {/* Tab Content */}
       <div className="flex-1 p-5 overflow-y-auto">
+        {/* ================================================================= */}
+        {/* SUB-ABA 1: 8 VISTAS (TURNTABLE 360° COM CÂMERA A 24 GRAUS)       */}
+        {/* ================================================================= */}
+        {pixelForgeItem.selectedTab === 'eight-views' && (
+          <div className="space-y-5">
+            {/* Environment Badge & Actions Bar */}
+            <div className="p-4 rounded-xl border border-gold-300 dark:border-denim-700 bg-white dark:bg-denim-850 shadow-warm dark:shadow-denim flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-gold-100 dark:bg-denim-800 border border-gold-300 dark:border-denim-700 flex items-center justify-center">
+                  <IconBox className="w-5 h-5 text-gold-700 dark:text-gold-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-extrabold text-espresso-950 dark:text-denim-50">
+                      Ambiente Scratchpad: .scratchpad/blend (Fora do Git)
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-700">
+                      Python 3.13 • bpy 5.2.2 LTS
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-espresso-600 dark:text-denim-300 font-mono mt-0.5">
+                    Projeção dimétrica RPG 2.5D com pitch de <strong>24.0°</strong> e 8 vistas ortogonais (passo de 45°).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={onTestScratchpad}
+                  className="px-3 py-1.5 rounded-lg bg-beige-100 dark:bg-denim-800 hover:bg-beige-200 dark:hover:bg-denim-700 border border-beige-300 dark:border-denim-700 text-espresso-900 dark:text-denim-100 text-xs font-mono font-bold transition cursor-pointer"
+                >
+                  ⚡ Validar Scratchpad
+                </button>
+                <button
+                  type="button"
+                  onClick={onRender8Views}
+                  className="px-3 py-1.5 rounded-lg bg-cyan-100 dark:bg-cyan-950/70 hover:bg-cyan-200 dark:hover:bg-cyan-900 border border-cyan-300 dark:border-cyan-700 text-cyan-900 dark:text-cyan-200 text-xs font-mono font-bold transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <IconRotate className="w-3.5 h-3.5" />
+                  <span>Render 8 Vistas</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onExportBlendMaster}
+                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300"
+                >
+                  <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
+                  <span>Exportar .blend Master</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Turntable 360° Studio Interativo */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* Visor Principal do Turntable */}
+              <div className="lg:col-span-7 p-5 rounded-xl border border-beige-300 dark:border-denim-700 bg-white dark:bg-denim-850 shadow-warm dark:shadow-denim flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-espresso-950 dark:text-denim-50 font-mono">
+                      Turntable 360° • Vista Ativa: {currentVista.label}
+                    </h3>
+                    <p className="text-xs text-espresso-600 dark:text-denim-300 font-mono">
+                      {currentVista.desc}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded bg-gold-100 dark:bg-gold-950/70 border border-gold-300 dark:border-gold-700 text-gold-900 dark:text-gold-300 text-xs font-mono font-extrabold shadow-xs">
+                      Pitch: 24.0°
+                    </span>
+                    <span className="px-2.5 py-1 rounded bg-beige-200 dark:bg-denim-800 text-espresso-800 dark:text-denim-200 text-xs font-mono font-bold">
+                      {pixelForgeItem.iconHeightPx * pixelForgeItem.zoomScale}×{pixelForgeItem.iconHeightPx * pixelForgeItem.zoomScale}px
+                    </span>
+                  </div>
+                </div>
+
+                {/* Canvas do Sprite com Grid de Fundo */}
+                <div className="p-6 bg-beige-50/60 dark:bg-denim-900/60 rounded-xl border border-beige-300 dark:border-denim-800 flex items-center justify-center relative min-h-[300px]">
+                  <div
+                    className="p-4 rounded-xl border border-beige-300 dark:border-denim-700 bg-white dark:bg-denim-950 flex items-center justify-center shadow-inner overflow-hidden"
+                    style={{
+                      backgroundImage: 'radial-gradient(#D5C7AF 1px, transparent 1px)',
+                      backgroundSize: '16px 16px'
+                    }}
+                  >
+                    {PixelModelPreview && (
+                      <PixelModelPreview
+                        modelType={pixelForgeItem.itemId}
+                        angle={currentAngle}
+                        zoomScale={pixelForgeItem.zoomScale}
+                        className="transition-all duration-100"
+                      />
+                    )}
+                  </div>
+
+                  {/* Indicador de Rotação Flutuante */}
+                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-white/90 dark:bg-denim-900/90 border border-beige-300 dark:border-denim-700 text-[10px] font-mono text-espresso-800 dark:text-denim-200 font-bold shadow-xs">
+                    Azimute: {currentAngle}° ({currentVista.short})
+                  </div>
+                </div>
+
+                {/* Controles de Rotação e Animação */}
+                <div className="mt-4 pt-4 border-t border-beige-200 dark:border-denim-750 space-y-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPixelForgeItem((prev) => ({
+                            ...prev,
+                            isPlayingTurntable: !prev.isPlayingTurntable
+                          }))
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer border ${
+                          pixelForgeItem.isPlayingTurntable
+                            ? 'bg-amber-500 text-espresso-950 border-amber-400 shadow-gold'
+                            : 'bg-gold-500 hover:bg-gold-400 text-espresso-950 border-gold-300 shadow-gold'
+                        }`}
+                      >
+                        {pixelForgeItem.isPlayingTurntable ? (
+                          <>
+                            <IconPause className="w-3.5 h-3.5" />
+                            <span>Pausar Rotação 360°</span>
+                          </>
+                        ) : (
+                          <>
+                            <IconPlay className="w-3.5 h-3.5" />
+                            <span>Girar Turntable 360°</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Velocidade */}
+                      <div className="flex items-center gap-1 bg-beige-100 dark:bg-denim-800 p-1 rounded-lg border border-beige-300 dark:border-denim-700 text-[10px] font-mono">
+                        <span className="px-1 text-espresso-600 dark:text-denim-400">Vel:</span>
+                        {[
+                          { label: 'Lenta', ms: 800 },
+                          { label: 'Normal', ms: 500 },
+                          { label: 'Rápida', ms: 250 }
+                        ].map((s) => (
+                          <button
+                            key={s.ms}
+                            type="button"
+                            onClick={() =>
+                              setPixelForgeItem((prev) => ({ ...prev, turntableSpeedMs: s.ms }))
+                            }
+                            className={`px-1.5 py-0.5 rounded cursor-pointer ${
+                              pixelForgeItem.turntableSpeedMs === s.ms
+                                ? 'bg-gold-500 text-espresso-950 font-extrabold'
+                                : 'text-espresso-700 dark:text-denim-200'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <span className="text-xs font-mono text-espresso-600 dark:text-denim-300 font-bold">
+                      Câmera RPG 2.5D: 24.0°
+                    </span>
+                  </div>
+
+                  {/* Slider de Rotação */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono text-espresso-600 dark:text-denim-300 font-bold w-12">
+                      0° Sul
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="315"
+                      step="45"
+                      value={currentAngle}
+                      onChange={(e) =>
+                        setPixelForgeItem((prev) => ({
+                          ...prev,
+                          currentAngle: parseInt(e.target.value, 10),
+                          isPlayingTurntable: false
+                        }))
+                      }
+                      className="flex-1 accent-gold-500 cursor-pointer"
+                    />
+                    <span className="text-xs font-mono text-espresso-600 dark:text-denim-300 font-bold w-16 text-right">
+                      315° SW
+                    </span>
+                  </div>
+
+                  {/* Chips dos 8 Ângulos */}
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 pt-1">
+                    {(vistas8Config || []).map((v) => (
+                      <button
+                        key={v.deg}
+                        type="button"
+                        onClick={() =>
+                          setPixelForgeItem((prev) => ({
+                            ...prev,
+                            currentAngle: v.deg,
+                            isPlayingTurntable: false
+                          }))
+                        }
+                        className={`py-1.5 px-1 rounded-lg text-[10px] font-mono text-center font-extrabold transition cursor-pointer border ${
+                          currentAngle === v.deg
+                            ? 'bg-gradient-to-r from-gold-500 to-amber-500 text-espresso-950 border-gold-300 shadow-gold'
+                            : 'bg-beige-50 dark:bg-denim-800 hover:bg-beige-100 dark:hover:bg-denim-700 text-espresso-800 dark:text-denim-200 border-beige-300 dark:border-denim-700'
+                        }`}
+                      >
+                        {v.deg}° {v.short}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações da Modelagem a partir da PLANTA & Entrega */}
+              <div className="lg:col-span-5 p-5 rounded-xl border border-beige-300 dark:border-denim-700 bg-white dark:bg-denim-850 flex flex-col justify-between shadow-warm dark:shadow-denim">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-espresso-950 dark:text-denim-50 font-mono">
+                      Modelagem a partir da PLANTA (Capybound RPG)
+                    </h3>
+                    <p className="text-xs text-espresso-600 dark:text-denim-300 font-mono mt-0.5">
+                      Especificação procedural respeitando a anatomia e itens de jogo.
+                    </p>
+                  </div>
+
+                  {/* Características Procedurais */}
+                  <div className="space-y-2 text-xs font-mono">
+                    <div className="p-2.5 rounded bg-beige-50 dark:bg-denim-900 border border-beige-300 dark:border-denim-750">
+                      <strong className="text-espresso-950 dark:text-denim-100">1. Anatomia Corporal:</strong>
+                      <p className="text-[11px] text-espresso-700 dark:text-denim-300 mt-0.5">
+                        Corpo robusto semi-cilíndrico com focinho quadrado característico e orelhas no topo da cabeça.
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded bg-beige-50 dark:bg-denim-900 border border-beige-300 dark:border-denim-750">
+                      <strong className="text-espresso-950 dark:text-denim-100">2. Sela & Montaria:</strong>
+                      <p className="text-[11px] text-espresso-700 dark:text-denim-300 mt-0.5">
+                        Sela acolchoada de aventureiro em azul royal com fivelas de ouro metálico reluzentes.
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded bg-beige-50 dark:bg-denim-900 border border-beige-300 dark:border-denim-750">
+                      <strong className="text-espresso-950 dark:text-denim-100">3. Câmera Dimétrica 24°:</strong>
+                      <p className="text-[11px] text-espresso-700 dark:text-denim-300 mt-0.5">
+                        Elevação constante de 24° para preservar o volume e a visibilidade dos 4 membros no grid.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Checklist das Tarefas */}
+                  <div className="p-3 rounded-lg bg-gold-50 dark:bg-denim-900/80 border border-gold-300 dark:border-denim-750 space-y-1.5 text-xs font-mono">
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                      <IconCheck className="w-3.5 h-3.5" />
+                      <span>Testar render do Blender (câmera 24°, 8 vistas)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                      <IconCheck className="w-3.5 h-3.5" />
+                      <span>Modelar a capivara no Blender a partir da PLANTA</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                      <IconCheck className="w-3.5 h-3.5" />
+                      <span>Render das 8 vistas + pixel art determinístico</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                      <IconCheck className="w-3.5 h-3.5" />
+                      <span>Entregar .blend + prova e registrar no DIÁRIO</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-beige-200 dark:border-denim-750 mt-4 space-y-2">
+                  <div className="text-[11px] font-mono text-espresso-600 dark:text-denim-400">
+                    Arquivo .blend salvo: <code className="text-espresso-950 dark:text-denim-200 font-bold">dist/game/models/{pixelForgeItem.itemId}_8vistas.blend</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onExportBlendMaster}
+                    className="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center justify-center gap-2 font-mono cursor-pointer border border-gold-300"
+                  >
+                    <IconCheck className="w-3.5 h-3.5 text-espresso-950" />
+                    <span>Salvar Modelo .blend & Atualizar Diário</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Prancha Consolidada das 8 Vistas (360° Turnaround Sheet) */}
+            <div className="p-5 rounded-xl border border-beige-300 dark:border-denim-700 bg-white dark:bg-denim-850 shadow-warm dark:shadow-denim">
+              <div className="flex justify-between items-center mb-3">
+                <div>
+                  <h3 className="text-sm font-extrabold text-espresso-950 dark:text-denim-50 font-mono">
+                    Prancha Turnaround 360° • 8 Vistas (Câmera 24°)
+                  </h3>
+                  <p className="text-xs text-espresso-600 dark:text-denim-300 font-mono">
+                    Todos os 8 ângulos renderizados e quantizados determinísticamente para o motor RPG.
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded bg-gold-100 dark:bg-gold-950/70 border border-gold-300 dark:border-gold-700 text-gold-900 dark:text-gold-300 text-xs font-mono font-bold">
+                  8 / 8 Vistas Prontas
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 p-3 rounded-xl bg-beige-50 dark:bg-denim-900 border border-beige-300 dark:border-denim-750">
+                {(vistas8Config || []).map((v) => {
+                  const isSelected = currentAngle === v.deg;
+                  return (
+                    <button
+                      key={v.deg}
+                      type="button"
+                      onClick={() =>
+                        setPixelForgeItem((prev) => ({
+                          ...prev,
+                          currentAngle: v.deg,
+                          isPlayingTurntable: false
+                        }))
+                      }
+                      className={`p-2 rounded-lg border flex flex-col items-center justify-center transition cursor-pointer ${
+                        isSelected
+                          ? 'border-gold-500 bg-gold-50 dark:bg-gold-950/40 shadow-gold'
+                          : 'border-beige-300 dark:border-denim-750 bg-white dark:bg-denim-950 hover:border-gold-400'
+                      }`}
+                    >
+                      <div className="w-16 h-16 flex items-center justify-center overflow-hidden">
+                        {PixelModelPreview && (
+                          <PixelModelPreview
+                            modelType={pixelForgeItem.itemId}
+                            angle={v.deg}
+                            zoomScale={0.8}
+                          />
+                        )}
+                      </div>
+                      <span className="mt-2 text-[10px] font-mono font-extrabold text-espresso-950 dark:text-denim-100">
+                        {v.deg}° ({v.short})
+                      </span>
+                      <span className="text-[9px] font-mono text-espresso-500 dark:text-denim-400">
+                        Pitch: 24°
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* SUB-ABA 2: 3 VARIANTES                                            */}
+        {/* ================================================================= */}
         {pixelForgeItem.selectedTab === 'variants' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -167,9 +571,11 @@ export default function PixelForgeView({
                         backgroundSize: '16px 16px'
                       }}
                     >
-                      {PixelSwordPreview && (
-                        <PixelSwordPreview
+                      {PixelModelPreview && (
+                        <PixelModelPreview
+                          modelType={pixelForgeItem.itemId}
                           variantId={v.id}
+                          angle={pixelForgeItem.currentAngle ?? 0}
                           zoomScale={pixelForgeItem.zoomScale}
                         />
                       )}
@@ -260,6 +666,9 @@ export default function PixelForgeView({
           </div>
         )}
 
+        {/* ================================================================= */}
+        {/* SUB-ABA 3: PRANCHA PIL                                            */}
+        {/* ================================================================= */}
         {pixelForgeItem.selectedTab === 'comparison' && (
           <div className="space-y-4">
             <div className="p-5 rounded-xl border border-beige-300 dark:border-denim-700 bg-white dark:bg-denim-850 shadow-warm dark:shadow-denim">
@@ -276,7 +685,7 @@ export default function PixelForgeView({
                   type="button"
                   onClick={() =>
                     setPixelForgeFeedback(
-                      'Master 1024px exportado com sucesso para /dist/game/sprites/espada_bambu.png!'
+                      `Master 1024px exportado com sucesso para /dist/game/sprites/${pixelForgeItem.itemId}.png!`
                     )
                   }
                   className="px-3.5 py-2 rounded-lg bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 font-extrabold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer border border-gold-300"
@@ -297,7 +706,14 @@ export default function PixelForgeView({
                 <div className="flex items-center justify-around w-full max-w-3xl py-4 bg-white dark:bg-denim-950 rounded-lg border border-beige-300 dark:border-denim-750 shadow-inner">
                   {[1, 2, 3].map((id) => (
                     <div key={id} className="flex flex-col items-center">
-                      {PixelSwordPreview && <PixelSwordPreview variantId={id} zoomScale={1.5} />}
+                      {PixelModelPreview && (
+                        <PixelModelPreview
+                          modelType={pixelForgeItem.itemId}
+                          variantId={id}
+                          angle={pixelForgeItem.currentAngle ?? 0}
+                          zoomScale={1.5}
+                        />
+                      )}
                       <span className="mt-2 text-xs font-mono text-espresso-950 dark:text-denim-100 font-extrabold">
                         Variante {id} {pixelForgeVariants.find((v) => v.id === id)?.approved && '⭐'}
                       </span>
@@ -309,6 +725,9 @@ export default function PixelForgeView({
           </div>
         )}
 
+        {/* ================================================================= */}
+        {/* SUB-ABA 4: BOLSA & PLAYWRIGHT                                     */}
+        {/* ================================================================= */}
         {pixelForgeItem.selectedTab === 'bag-playwright' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Bag simulator */}
@@ -328,11 +747,13 @@ export default function PixelForgeView({
               </div>
 
               <div className="p-4 rounded-xl border-2 border-beige-300 dark:border-denim-700 bg-beige-50 dark:bg-denim-900 grid grid-cols-4 gap-3 max-w-md mx-auto shadow-inner">
-                {/* Slot 1: Equipped sword */}
+                {/* Slot 1: Equipped item */}
                 <div className="aspect-square rounded-lg border-2 border-gold-500 bg-gold-50 dark:bg-gold-950/40 p-1.5 flex flex-col items-center justify-center relative shadow-gold group">
-                  {PixelSwordPreview && (
-                    <PixelSwordPreview
+                  {PixelModelPreview && (
+                    <PixelModelPreview
+                      modelType={pixelForgeItem.itemId}
                       variantId={pixelForgeVariants.find((v) => v.approved)?.id || 1}
+                      angle={pixelForgeItem.currentAngle ?? 0}
                       zoomScale={0.7}
                     />
                   )}

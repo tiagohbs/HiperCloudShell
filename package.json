@@ -12,7 +12,9 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "test": "node --test",
-    "mcp:stitch": "node scripts/sync-stitch-mcp.cjs"
+    "mcp:stitch": "node scripts/sync-stitch-mcp.cjs",
+    "blender:setup": "node scripts/setup-blender-env.cjs",
+    "render:8views": "node scripts/render-8views.cjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.2.0",

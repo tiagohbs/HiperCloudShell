@@ -26,10 +26,13 @@ export async function runPixelForgeWorkflow({
   iconHeightPx = 112,
   styleBrief = 'pixel art 16-bit com sombra fria, luz quente e contorno tingido',
   threeDOnlyMode = false, // Quando o usuario pede: "nao passa pra pixel art ainda"
+  eightViewsMode = true, // Renderizacao 360 em 8 vistas com camera 24 graus
+  cameraElevation = 24.0, // Pitch dimetrico RPG 2.5D
   approvedVariantIndex = null // 1, 2 ou 3 quando o usuario escolhe a variante vencedora
 }) {
   const scriptPath = `tools/icones/${itemId}.py`;
   const profilePath = `tools/icones/perfis/${itemId}.json`;
+  const blendMasterPath = `dist/game/models/${itemId}_8vistas.blend`;
 
   // ==========================================================================
   // FASE 1: CONSTRUCAO DO MODELO 3D PROCEDURAL (bpy) + PERFIL DO PINTOR
@@ -133,24 +136,34 @@ export async function runPixelForgeWorkflow({
     `blend/bin/python -I tools/icones/pintor.py ${finalExr} ${finalPng} ${iconHeightPx} ${profilePath}`
   );
 
-  // Instala no jogo, atualiza receitas/<lote>.json e tira print da bolsa com Playwright
+  // Execucao das 8 Vistas Multi-Angulo (360) com Camera 24 graus e salvamento do .blend Master
+  if (eightViewsMode) {
+    await verifyCmd(
+      `blend/bin/python -I ${scriptPath} -- /tmp/${itemId}_8vistas 512 --vistas8 --salvar-blend ${blendMasterPath} ${chosenArgs}`
+    );
+  }
+
+  // Instala no jogo, atualiza receitas/<lote>.json, grava DIARIO e tira print da bolsa com Playwright
   const finalInstall = await agent(
     `A variante ${approvedVariantIndex} ('${chosenArgs}') foi aprovada pelo usuario!
-     1. Gere as duas imagens separadas: foto 3D recortada em fundo escuro e pixel art ampliado 5x com Image.NEAREST.
-     2. Grave a escolha em 'tools/icones/receitas/${lote}.json' (script, args, perfil, altura: ${iconHeightPx}).
-     3. Instale no jogo com 'python3 -I tools/add_icone.py item ${itemId} ${finalPng} --nativo'.
-     4. Rode 'python3 tools/build.py && python3 tools/testes/mktest.py'.
-     5. Suba servidor HTTP na porta 8765 e capture screenshot da tela da bolsa com Playwright para validarmos o icone em contexto real.`,
+     1. Entregue o modelo nativo Blender em '${blendMasterPath}' e prancha comparativa das 8 vistas (camera ${cameraElevation}°).
+     2. Registre a entrega com data, parametros e checksum no arquivo 'docs/DIARIO_3D_PIXEL_FORGE.md'.
+     3. Gere as duas imagens separadas: foto 3D recortada em fundo escuro e pixel art ampliado 5x com Image.NEAREST.
+     4. Grave a escolha em 'tools/icones/receitas/${lote}.json' (script, args, perfil, altura: ${iconHeightPx}).
+     5. Instale no jogo com 'python3 -I tools/add_icone.py item ${itemId} ${finalPng} --nativo'.
+     6. Rode 'python3 tools/build.py && python3 tools/testes/mktest.py'.
+     7. Suba servidor HTTP na porta 8765 e capture screenshot da tela da bolsa com Playwright para validarmos o icone em contexto real.`,
     {
       harness: variantRunner,
-      allowedWriteFiles: [`tools/icones/receitas/${lote}.json`],
+      allowedWriteFiles: [`tools/icones/receitas/${lote}.json`, 'docs/DIARIO_3D_PIXEL_FORGE.md'],
       schema: {
         type: 'object',
-        required: ['render3dPath', 'pixelArt5xPath', 'bagScreenshotPath', 'whatChanged', 'howToTest', 'notTested'],
+        required: ['render3dPath', 'pixelArt5xPath', 'bagScreenshotPath', 'blendMasterPath', 'whatChanged', 'howToTest', 'notTested'],
         properties: {
           render3dPath: { type: 'string' },
           pixelArt5xPath: { type: 'string' },
           bagScreenshotPath: { type: 'string' },
+          blendMasterPath: { type: 'string' },
           whatChanged: { type: 'string' },
           howToTest: { type: 'string' },
           notTested: { type: 'string' }
@@ -163,6 +176,7 @@ export async function runPixelForgeWorkflow({
     status: 'INSTALLED_AND_VERIFIED_IN_BAG',
     chosenVariant: approvedVariantIndex,
     chosenArgs,
+    blendMasterPath,
     finalInstall
   };
 }

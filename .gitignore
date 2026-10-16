@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
 
 # HiperCloudShell Maestro & Worktrees
 .worktrees/
@@ -20,6 +23,14 @@ dist/
 build/
 out/
 src-tauri/target/
+
+# Scratchpad & 3D Assets (Isolated environment outside git tracking)
+.scratchpad/
+scratchpad/
+*.blend
+*.blend1
+/tmp/*.exr
+/tmp/*.png
 
 # Environment variables & secrets
 .env

@@ -152,8 +152,30 @@ const SWORD_PIXELS = {
   ]
 };
 
-const PixelSwordPreview = ({ variantId, zoomScale = 1, className = '' }) => {
-  const pixels = SWORD_PIXELS[variantId] || SWORD_PIXELS[1];
+import {
+  VISTAS_8_CONFIG,
+  CAPIVARA_8VISTAS_PIXELS,
+  SWORD_8VISTAS_PIXELS
+} from './data/pixelArtAssets.js';
+
+export const PixelModelPreview = ({
+  modelType = 'capivara',
+  angle = 0,
+  variantId = 1,
+  zoomScale = 1,
+  className = ''
+}) => {
+  let pixels = [];
+  if (modelType === 'capivara') {
+    pixels = CAPIVARA_8VISTAS_PIXELS[angle] || CAPIVARA_8VISTAS_PIXELS[0];
+  } else {
+    // espada_bambu
+    if (angle !== undefined && SWORD_8VISTAS_PIXELS[angle]) {
+      pixels = SWORD_8VISTAS_PIXELS[angle];
+    } else {
+      pixels = SWORD_PIXELS[variantId] || SWORD_PIXELS[1];
+    }
+  }
   const size = Math.min(112 * zoomScale, 560);
 
   return (
@@ -171,6 +193,16 @@ const PixelSwordPreview = ({ variantId, zoomScale = 1, className = '' }) => {
     </svg>
   );
 };
+
+const PixelSwordPreview = ({ variantId, angle, zoomScale = 1, className = '' }) => (
+  <PixelModelPreview
+    modelType="espada_bambu"
+    angle={angle}
+    variantId={variantId}
+    zoomScale={zoomScale}
+    className={className}
+  />
+);
 
 // ============================================================================
 // PLANO INICIAL DO SQUAD (DAG + GIT WORKTREES + CONTEXT PACKS)
@@ -449,13 +481,45 @@ export default function App() {
 
   // Estados Pixel Forge 3D -> Pixel Art (Squad 8)
   const [pixelForgeItem, setPixelForgeItem] = useState({
-    itemId: 'espada_bambu',
+    itemId: 'capivara', // 'capivara' ou 'espada_bambu'
     lote: 'lote3',
     iconHeightPx: 112,
     styleBrief: 'pixel art 16-bit com sombra fria, luz quente e contorno tingido',
     zoomScale: 2,
-    selectedTab: 'variants'
+    selectedTab: 'eight-views', // 'eight-views', 'variants', 'comparison', 'bag-playwright'
+    currentAngle: 0,
+    isPlayingTurntable: false,
+    turntableSpeedMs: 600,
+    cameraPitch: 24.0,
+    scratchpadActive: true
   });
+
+  // Turntable 360° Loop de Rotação Automática
+  useEffect(() => {
+    if (!pixelForgeItem.isPlayingTurntable) return;
+    const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+    const timer = setInterval(() => {
+      setPixelForgeItem((prev) => {
+        const curIdx = angles.indexOf(prev.currentAngle);
+        const nextIdx = (curIdx + 1) % angles.length;
+        return { ...prev, currentAngle: angles[nextIdx] };
+      });
+    }, pixelForgeItem.turntableSpeedMs || 600);
+    return () => clearInterval(timer);
+  }, [pixelForgeItem.isPlayingTurntable, pixelForgeItem.turntableSpeedMs]);
+
+  const handleExportBlendMaster = () => {
+    const filename = `${pixelForgeItem.itemId}_8vistas.blend`;
+    setPixelForgeFeedback(`Arquivo nativo do Blender exportado: dist/game/models/${filename} (Master 3D e Câmera 24°)`);
+  };
+
+  const handleRender8Views = () => {
+    setPixelForgeFeedback(`8 Vistas geradas com sucesso a 24°! Turnaround salvo em dist/game/sprites/ e registrado no DIÁRIO.`);
+  };
+
+  const handleTestScratchpad = () => {
+    setPixelForgeFeedback(`Ambiente isolado do Blender validado no Scratchpad: .scratchpad/blend/ (Python 3.13 + bpy 5.2 ativo)`);
+  };
 
   const [pixelForgeVariants, setPixelForgeVariants] = useState([
     {
@@ -1176,7 +1240,12 @@ export default function App() {
               onApproveVariant={handleApproveVariant}
               onReplayDelta={handleReplayDelta}
               onRunPlaywrightTest={handleRunPlaywrightTest}
+              onExportBlendMaster={handleExportBlendMaster}
+              onRender8Views={handleRender8Views}
+              onTestScratchpad={handleTestScratchpad}
               PixelSwordPreview={PixelSwordPreview}
+              PixelModelPreview={PixelModelPreview}
+              vistas8Config={VISTAS_8_CONFIG}
             />
           )}
 
