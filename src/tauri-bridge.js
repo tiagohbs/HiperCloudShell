@@ -49,6 +49,30 @@ export function initTauriBridge() {
         unlistenPromise.then((unlisten) => unlisten());
       };
     },
+    onSystemNotification: (callback) => {
+      const unlistenPromise = listen('ultracode:system-notification', (event) => {
+        callback(event.payload);
+      });
+      return () => {
+        unlistenPromise.then((unlisten) => unlisten());
+      };
+    },
+    onImprovementUpdate: (callback) => {
+      const unlistenPromise = listen('ultracode:improvement-update', (event) => {
+        callback(event.payload);
+      });
+      return () => {
+        unlistenPromise.then((unlisten) => unlisten());
+      };
+    },
+    onCloudShellAnomaly: (callback) => {
+      const unlistenPromise = listen('ultracode:cloudshell-anomaly', (event) => {
+        callback(event.payload);
+      });
+      return () => {
+        unlistenPromise.then((unlisten) => unlisten());
+      };
+    },
 
     // Commands
     setProvider: (provider) => invoke('ultracode_set_provider', { provider }),
@@ -101,7 +125,24 @@ export function initTauriBridge() {
     verifyMerkleReplay: (query) =>
       invoke('verify_merkle_replay', { query }),
     commitMerkleReplay: (entry) =>
-      invoke('commit_merkle_replay', { entry })
+      invoke('commit_merkle_replay', { entry }),
+
+    // Comandos de Auto-Melhoria & Rastreamento de Notificações
+    getSelfImprovementConfig: () => invoke('ultracode_get_self_improvement_config'),
+    setSelfImprovementConfig: (config) =>
+      invoke('ultracode_set_self_improvement_config', { config }),
+    getNotifications: () => invoke('ultracode_get_notifications'),
+    getImprovements: () => invoke('ultracode_get_improvements'),
+    followNotificationSource: (notificationId) =>
+      invoke('ultracode_follow_notification_source', { notificationId }),
+    triggerSelfImprovement: ({ notificationCode, customGoal, engineOverride, targetFiles } = {}) =>
+      invoke('ultracode_trigger_self_improvement', {
+        notificationCode: notificationCode || null,
+        customGoal: customGoal || null,
+        engineOverride: engineOverride || null,
+        targetFiles: targetFiles || null
+      }),
+    inspectCloudShell: (termId) => invoke('ultracode_cloudshell_inspect', { termId })
   };
 
   window.ultracodeAPI = bridge;

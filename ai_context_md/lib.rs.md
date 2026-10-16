@@ -1,11 +1,9 @@
-# Núcleo Rust: Entrada Principal Tauri v2 (`src-tauri/src/lib.rs`)
+# Núcleo Rust: Entrada Principal Tauri v2 (src-tauri/src/lib.rs)
 
-> **Arquivo de Origem:** `src-tauri/src/lib.rs`  
-> **Tamanho:** 68 linhas (2.4 KB)  
-> **Linguagem:** Rust (Tauri v2)  
-> **Descrição:** Ponto de entrada do runtime Tauri v2 no HiperCloudShell. Inicializa o estado compartilhado da aplicação (`AppState`, `WorktreeManager` com Junctions e Pre-Warming, `BlackboardState` com Merkle Replay Cache, `PtyManager`, `DualEngineAdapter`), executa a sementeira dos templates canônicos e registra todos os 20 handlers IPC invocáveis pelo frontend.
+> **Arquivo de Origem:** src-tauri/src/lib.rs  
+> **Tamanho:** 75 linhas (2.7 KB)  
 
-```rust
+`rust
 pub mod blackboard;
 pub mod commands;
 pub mod dual_engine;
@@ -69,8 +67,15 @@ pub fn run() {
             commands::release_fast_worktree,
             commands::verify_merkle_replay,
             commands::commit_merkle_replay,
+            commands::ultracode_get_self_improvement_config,
+            commands::ultracode_set_self_improvement_config,
+            commands::ultracode_get_notifications,
+            commands::ultracode_get_improvements,
+            commands::ultracode_follow_notification_source,
+            commands::ultracode_trigger_self_improvement,
+            commands::ultracode_cloudshell_inspect,
         ])
         .run(tauri::generate_context!())
         .expect("Erro ao iniciar aplicação Tauri v2 HiperCloudShell");
 }
-```
+`

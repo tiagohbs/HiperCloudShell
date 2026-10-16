@@ -61,6 +61,13 @@ pub fn run() {
             commands::release_fast_worktree,
             commands::verify_merkle_replay,
             commands::commit_merkle_replay,
+            commands::ultracode_get_self_improvement_config,
+            commands::ultracode_set_self_improvement_config,
+            commands::ultracode_get_notifications,
+            commands::ultracode_get_improvements,
+            commands::ultracode_follow_notification_source,
+            commands::ultracode_trigger_self_improvement,
+            commands::ultracode_cloudshell_inspect,
         ])
         .run(tauri::generate_context!())
         .expect("Erro ao iniciar aplicação Tauri v2 HiperCloudShell");

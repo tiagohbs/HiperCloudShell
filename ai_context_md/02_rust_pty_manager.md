@@ -1,15 +1,15 @@
-# Núcleo Rust: Gerenciador PTY Interativo (Hot-Takeover & Terminal Virtual)
+# Núcleo Rust: Gerenciador PTY & CloudShell (src-tauri/src/pty_manager.rs)
 
 > **Arquivo de Origem:** src-tauri/src/pty_manager.rs  
-> **Tamanho:** 244 linhas (7.0 KB)  
-> **Descrição:** Gerenciador PTY baseado em portable-pty para spawn de sessões interativas no Windows (ConPTY) e Unix, permitindo que o usuário assuma qualquer subagente.
+> **Tamanho:** 365 linhas (11.4 KB)  
 
 `rust
+// src-tauri/src/pty_manager.rs
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
@@ -20,10 +20,24 @@ pub struct TermDataPayload {
     pub data: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CloudShellAnomalyPayload {
+    pub code: String,
+    #[serde(rename = "termId")]
+    pub term_id: String,
+    pub provider: String,
+    pub cwd: Option<String>,
+    pub snippet: String,
+    pub timestamp: i64,
+}
+
 struct Session {
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
-    _clean_buffer: String,
+    clean_buffer: Arc<StdMutex<String>>,
+    cwd: Option<String>,
+    provider: String,
+    conversation_id: Option<String>,
 }
 
 #[derive(Clone)]
@@ -38,7 +52,12 @@ impl PtyManager {
         }
     }
 
-    /// Cria uma nova sessão PTY e inicia a thread de streaming para o frontend
+    fn strip_ansi(input: &str) -> String {
+        let re = regex::Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap();
+        re.replace_all(input, "").to_string()
+    }
+
+    /// Cria uma nova sessão PTY/CloudShell com buffer inspecionável e detector de anomalias
     pub async fn create_session(
         &self,
         term_id: String,
@@ -64,7 +83,7 @@ impl PtyManager {
         };
 
         let mut cmd = CommandBuilder::new(default_shell);
-        if let Some(c) = cwd {
+        if let Some(ref c) = cwd {
             cmd.cwd(c);
         }
         if let Some(envs) = env {
@@ -90,7 +109,11 @@ impl PtyManager {
             .take_writer()
             .map_err(|e| format!("Falha ao obter escritor PTY: {}", e))?;
 
+        let clean_buffer = Arc::new(StdMutex::new(String::new()));
+        let buffer_clone = Arc::clone(&clean_buffer);
         let t_id = term_id.clone();
+        let cwd_clone = cwd.clone();
+
         std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
             while let Ok(n) = reader.read(&mut buf) {
@@ -98,6 +121,35 @@ impl PtyManager {
                     break;
                 }
                 let chunk = String::from_utf8_lossy(&buf[..n]).to_string();
+                let clean_chunk = Self::strip_ansi(&chunk);
+
+                if let Ok(mut guard) = buffer_clone.lock() {
+                    guard.push_str(&clean_chunk);
+                    if guard.len() > 60_000 {
+                        let drain_len = guard.len() - 45_000;
+                        guard.drain(..drain_len);
+                    }
+                }
+
+                // Detector em tempo real de falhas críticas no CloudShell
+                if clean_chunk.contains("ERR!")
+                    || clean_chunk.contains("panicked at")
+                    || clean_chunk.contains("SyntaxError:")
+                    || clean_chunk.contains("TOKEN_BUDGET_EXCEEDED")
+                {
+                    let _ = app_handle.emit(
+                        "ultracode:cloudshell-anomaly",
+                        CloudShellAnomalyPayload {
+                            code: "HCS-ERR-PTY-501".to_string(),
+                            term_id: t_id.clone(),
+                            provider: "cloudshell".to_string(),
+                            cwd: cwd_clone.clone(),
+                            snippet: clean_chunk.chars().take(300).collect(),
+                            timestamp: chrono::Utc::now().timestamp_millis(),
+                        },
+                    );
+                }
+
                 let _ = app_handle.emit(
                     "ultracode:term-data",
                     TermDataPayload {
@@ -114,7 +166,10 @@ impl PtyManager {
             Session {
                 master: pair.master,
                 writer,
-                _clean_buffer: String::new(),
+                clean_buffer,
+                cwd,
+                provider: "cloudshell".to_string(),
+                conversation_id: None,
             },
         );
 
@@ -144,11 +199,11 @@ impl PtyManager {
         let binary = if is_agy { "agy" } else { "claude" };
 
         let mut cmd = CommandBuilder::new(binary);
-        if let Some(c) = cwd {
+        if let Some(ref c) = cwd {
             cmd.cwd(c);
         }
 
-        if let Some(cid) = conversation_id {
+        if let Some(ref cid) = conversation_id {
             if is_agy {
                 cmd.arg("--conversation-id");
                 cmd.arg(cid);
@@ -176,7 +231,10 @@ impl PtyManager {
             .take_writer()
             .map_err(|e| e.to_string())?;
 
+        let clean_buffer = Arc::new(StdMutex::new(String::new()));
+        let buffer_clone = Arc::clone(&clean_buffer);
         let t_id = term_id.clone();
+
         std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
             while let Ok(n) = reader.read(&mut buf) {
@@ -184,6 +242,9 @@ impl PtyManager {
                     break;
                 }
                 let chunk = String::from_utf8_lossy(&buf[..n]).to_string();
+                if let Ok(mut guard) = buffer_clone.lock() {
+                    guard.push_str(&Self::strip_ansi(&chunk));
+                }
                 let _ = app_handle.emit(
                     "ultracode:term-data",
                     TermDataPayload {
@@ -200,14 +261,75 @@ impl PtyManager {
             Session {
                 master: pair.master,
                 writer,
-                _clean_buffer: String::new(),
+                clean_buffer,
+                cwd,
+                provider,
+                conversation_id,
             },
         );
 
         Ok(())
     }
 
-    /// Envia dados de teclado/input ao processo PTY
+    /// Inicia uma sessão CloudShell dedicada ao Agente de Auto-Melhoria (Claude ou Antigravity)
+    pub async fn spawn_cloudshell_improvement_agent(
+        &self,
+        term_id: String,
+        engine: String, // "claude" | "antigravity"
+        worktree_path: String,
+        improvement_prompt: String,
+        app_handle: AppHandle,
+    ) -> Result<(), String> {
+        let mut envs = HashMap::new();
+        envs.insert("HCS_SELF_IMPROVEMENT".to_string(), "1".to_string());
+        envs.insert("HCS_ENGINE".to_string(), engine.clone());
+
+        self.create_session(
+            term_id.clone(),
+            Some(worktree_path),
+            None,
+            Some(envs),
+            app_handle,
+        )
+        .await?;
+
+        let escaped_prompt = improvement_prompt.replace('"', "\\\"");
+        let cli_cmd = if engine == "antigravity" {
+            format!("agy -p \"/boost {}\" --mode accept-edits --effort high\r", escaped_prompt)
+        } else {
+            format!("claude -p \"{}\" --permission-mode acceptEdits --effort xhigh\r", escaped_prompt)
+        };
+
+        self.write(&term_id, &cli_cmd).await?;
+        Ok(())
+    }
+
+    /// Retorna o snapshot recente do buffer limpo e metadados da sessão CloudShell
+    pub async fn inspect_session(&self, term_id: &str) -> Result<serde_json::Value, String> {
+        let sessions = self.sessions.lock().await;
+        if let Some(session) = sessions.get(term_id) {
+            let tail = session
+                .clean_buffer
+                .lock()
+                .map(|b| {
+                    let len = b.len();
+                    let start = len.saturating_sub(4000);
+                    b[start..].to_string()
+                })
+                .unwrap_or_default();
+
+            Ok(serde_json::json!({
+                "termId": term_id,
+                "cwd": session.cwd,
+                "provider": session.provider,
+                "conversationId": session.conversation_id,
+                "bufferTail": tail
+            }))
+        } else {
+            Err(format!("Sessão CloudShell {} não encontrada", term_id))
+        }
+    }
+
     pub async fn write(&self, term_id: &str, input: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().await;
         if let Some(session) = sessions.get_mut(term_id) {
@@ -222,7 +344,6 @@ impl PtyManager {
         }
     }
 
-    /// Redimensiona o terminal PTY
     pub async fn resize(&self, term_id: &str, cols: u16, rows: u16) -> Result<(), String> {
         let sessions = self.sessions.lock().await;
         if let Some(session) = sessions.get(term_id) {
@@ -241,7 +362,6 @@ impl PtyManager {
         }
     }
 
-    /// Encerra a sessão PTY
     pub async fn kill(&self, term_id: &str) -> Result<(), String> {
         let mut sessions = self.sessions.lock().await;
         sessions.remove(term_id);

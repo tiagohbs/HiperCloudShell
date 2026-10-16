@@ -1,8 +1,7 @@
-# Orquestrador Node.js: BlackboardManager & Templates de Squads
+# Orquestrador Node.js: BlackboardManager & SelfImprovement (orchestrator/blackboard.js)
 
 > **Arquivo de Origem:** orchestrator/blackboard.js  
-> **Tamanho:** 964 linhas (35.6 KB)  
-> **Descrição:** Gerenciador de memória compartilhada do DAG (.maestro/blackboard.json), injeção de Context Packs, sementeira de templates em .claude/workflows e catálogo de squads.
+> **Tamanho:** 1043 linhas (38.2 KB)  
 
 `javascript
 // electron/orchestrator/blackboard.js
@@ -43,7 +42,86 @@ export class BlackboardManager extends EventEmitter {
       tasks: {}
     };
 
+    this.initSelfImprovementSystem();
     this.persist();
+  }
+
+  initSelfImprovementSystem() {
+    this.improvementLogPath = path.join(this.maestroDir, 'self-improvement.log.jsonl');
+    if (!this.state.selfImprovement) {
+      this.state.selfImprovement = {
+        enabled: true,
+        continuousMode: true,
+        preferredEngine: 'hybrid', // 'claude' | 'antigravity' | 'hybrid'
+        bottleneckThresholdMs: 45000,
+        notifications: [],
+        improvements: {}
+      };
+    }
+  }
+
+  /**
+   * Emite um log estruturado + notificação com código de erro/gargalo/melhoria
+   * e metadados para seguir o agente até a fonte ou abrir o Sistema de Melhoria
+   */
+  emitSystemNotification({
+    code,
+    kind = 'error', // 'error' | 'bottleneck' | 'improvement'
+    severity = 'warning',
+    title,
+    message,
+    sourceTrace = {},
+    improvementId = null
+  }) {
+    if (!this.state.selfImprovement) this.initSelfImprovementSystem();
+
+    const seq = (this.state.selfImprovement.notifications.length + 1).toString().padStart(3, '0');
+    const prefix = kind === 'bottleneck' ? 'HCS-BTL' : kind === 'improvement' ? 'HCS-IMP' : 'HCS-ERR';
+    const finalCode = code || `${prefix}-${seq}`;
+
+    const notification = {
+      id: `notif_${Date.now()}_${seq}`,
+      code: finalCode,
+      kind,
+      severity,
+      title,
+      message,
+      timestamp: Date.now(),
+      acknowledged: false,
+      sourceTrace: {
+        runId: sourceTrace.runId || null,
+        agentId: sourceTrace.agentId || null,
+        termId: sourceTrace.termId || sourceTrace.paneId || null,
+        paneId: sourceTrace.paneId || sourceTrace.termId || null,
+        conversationId: sourceTrace.conversationId || null,
+        provider: sourceTrace.provider || null,
+        worktreePath: sourceTrace.worktreePath || sourceTrace.cwd || null,
+        fileTarget: sourceTrace.fileTarget || null
+      },
+      improvementId
+    };
+
+    this.state.selfImprovement.notifications.push(notification);
+    if (this.state.selfImprovement.notifications.length > 100) {
+      this.state.selfImprovement.notifications.shift();
+    }
+
+    // Grava em stream append-only (.jsonl) para auditoria do Agente de Auto-Melhoria
+    try {
+      fs.appendFileSync(this.improvementLogPath, JSON.stringify(notification) + '\n', 'utf8');
+    } catch (_) {}
+
+    this.persist();
+    this.emit('system:notification', notification);
+    return notification;
+  }
+
+  registerImprovementTask(task) {
+    if (!this.state.selfImprovement) this.initSelfImprovementSystem();
+    this.state.selfImprovement.improvements[task.id] = task;
+    this.persist();
+    this.emit('improvement:update', task);
+    return task;
   }
 
   // ==========================================================================

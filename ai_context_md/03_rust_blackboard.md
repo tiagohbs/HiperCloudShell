@@ -1,8 +1,7 @@
-# Núcleo Rust: Blackboard & Merkle Replay Cache
+# Núcleo Rust: Blackboard & Merkle Replay Cache & Auto-Melhoria (src-tauri/src/blackboard.rs)
 
 > **Arquivo de Origem:** src-tauri/src/blackboard.rs  
-> **Tamanho:** 361 linhas (11.5 KB)  
-> **Descrição:** Estado compartilhado thread-safe (Arc<RwLock>) com persistência atômica (.tmp + rename), Merkle Replay Cache baseado em SHA-256 da árvore Git e Circuit Breaker financeiro de tokens.
+> **Tamanho:** 474 linhas (15.4 KB)  
 
 `rust
 // src-tauri/src/blackboard.rs
@@ -101,6 +100,75 @@ pub struct TelemetryEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelfImprovementConfig {
+    pub enabled: bool,
+    pub continuous_mode: bool,
+    pub preferred_engine: String, // "claude" | "antigravity" | "hybrid"
+    pub auto_apply_cloudshell: bool,
+    pub bottleneck_threshold_ms: u64,
+    pub max_healing_retries: u32,
+}
+
+impl Default for SelfImprovementConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            continuous_mode: true,
+            preferred_engine: "hybrid".to_string(),
+            auto_apply_cloudshell: true,
+            bottleneck_threshold_ms: 45_000, // 45s dispara alerta de gargalo
+            max_healing_retries: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationSourceTrace {
+    pub run_id: Option<String>,
+    pub agent_id: Option<String>,
+    pub term_id: Option<String>,
+    pub pane_id: Option<String>,
+    pub conversation_id: Option<String>,
+    pub provider: Option<String>,
+    pub worktree_path: Option<String>,
+    pub file_target: Option<String>,
+    pub line_hint: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImprovementTask {
+    pub id: String,
+    pub source_notification_code: String,
+    pub category: String, // "error_fix" | "bottleneck_opt" | "continuous_improvement"
+    pub status: String,   // "queued" | "running_cloudshell" | "validating_gate" | "completed" | "failed"
+    pub engine: String,   // "claude" | "antigravity" | "hybrid"
+    pub cloudshell_term_id: String,
+    pub worktree_path: Option<String>,
+    pub branch_name: Option<String>,
+    pub target_files: Vec<String>,
+    pub diagnosis: Option<String>,
+    pub patch_summary: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemNotification {
+    pub id: String,
+    pub code: String,     // Ex: "HCS-ERR-402", "HCS-BTL-105", "HCS-IMP-201"
+    pub kind: String,     // "error" | "bottleneck" | "improvement"
+    pub severity: String, // "info" | "warning" | "critical"
+    pub title: String,
+    pub message: String,
+    pub timestamp: i64,
+    pub acknowledged: bool,
+    /// Permite seguir o agente até a fonte (terminal PTY, worktree ou conversa)
+    pub source_trace: NotificationSourceTrace,
+    /// Permite ir direto para o Sistema de Auto-Melhoria que está tratando o item
+    pub improvement_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlackboardData {
     pub session_id: String,
     pub max_token_budget: u64,
@@ -117,6 +185,12 @@ pub struct BlackboardData {
     pub runs: HashMap<String, WorkflowRunState>,
     #[serde(default)]
     pub telemetry_sliding_window: VecDeque<TelemetryEvent>,
+    #[serde(default)]
+    pub self_improvement_config: SelfImprovementConfig,
+    #[serde(default)]
+    pub notifications: VecDeque<SystemNotification>,
+    #[serde(default)]
+    pub improvements: HashMap<String, ImprovementTask>,
 }
 
 fn default_session_effort() -> String {
@@ -143,11 +217,49 @@ impl Default for BlackboardData {
             budget: GlobalBudget::default(),
             runs: HashMap::new(),
             telemetry_sliding_window: VecDeque::with_capacity(40),
+            self_improvement_config: SelfImprovementConfig::default(),
+            notifications: VecDeque::new(),
+            improvements: HashMap::new(),
         }
     }
 }
 
 impl BlackboardData {
+    pub fn push_notification(&mut self, notification: SystemNotification) -> SystemNotification {
+        if self.notifications.len() >= 100 {
+            self.notifications.pop_front();
+        }
+        self.notifications.push_back(notification.clone());
+        notification
+    }
+
+    pub fn register_improvement(&mut self, task: ImprovementTask) -> ImprovementTask {
+        let id = task.id.clone();
+        self.improvements.insert(id, task.clone());
+        task
+    }
+
+    pub fn update_improvement_status(
+        &mut self,
+        improvement_id: &str,
+        status: &str,
+        diagnosis: Option<String>,
+        patch_summary: Option<String>,
+    ) -> Option<ImprovementTask> {
+        if let Some(task) = self.improvements.get_mut(improvement_id) {
+            task.status = status.to_string();
+            task.updated_at = chrono::Utc::now().timestamp_millis();
+            if diagnosis.is_some() {
+                task.diagnosis = diagnosis;
+            }
+            if patch_summary.is_some() {
+                task.patch_summary = patch_summary;
+            }
+            return Some(task.clone());
+        }
+        None
+    }
+
     pub fn create_run(
         &mut self,
         id: String,

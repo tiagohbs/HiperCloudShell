@@ -1,8 +1,7 @@
-# Orquestrador Node.js: TerminalManager (PTY & Telemetria NDJSON em Tempo Real)
+# Orquestrador Node.js: TerminalManager & CloudShellEngine (orchestrator/term.js)
 
 > **Arquivo de Origem:** orchestrator/term.js  
-> **Tamanho:** 791 linhas (24.8 KB)  
-> **Descrição:** Gerenciamento de processos PTY locais e CloudShell SSH com parser de eventos NDJSON em streaming e stripping de sequências ANSI.
+> **Tamanho:** 846 linhas (26.6 KB)  
 
 `javascript
 import { spawn } from 'node:child_process';
@@ -29,6 +28,61 @@ export function stripAnsi(raw) {
   return raw.replace(ANSI_REGEX, '');
 }
 
+export class CloudShellEngine extends EventEmitter {
+  constructor({ projectRoot = process.cwd() } = {}) {
+    super();
+    this.projectRoot = projectRoot;
+    this.activeCloudSessions = new Map();
+  }
+
+  /**
+   * Provisiona uma sessão CloudShell (local isolada em Worktree ou túnel SSH remoto se HCS_CLOUDSHELL_SSH estiver definido)
+   */
+  spawnSession({ paneId, cwd = this.projectRoot, env = {} }) {
+    const sshTarget = process.env.HCS_CLOUDSHELL_SSH;
+    const defaultShell = os.platform() === 'win32' ? 'powershell.exe' : process.env.SHELL || 'bash';
+
+    const mergedEnv = {
+      ...process.env,
+      ...env,
+      TERM: 'xterm-256color',
+      FORCE_COLOR: '1',
+      HCS_CLOUDSHELL_PANE: paneId
+    };
+
+    if (pty) {
+      const command = sshTarget ? 'ssh' : defaultShell;
+      const args = sshTarget ? ['-tt', sshTarget, `cd "${cwd}" && exec $SHELL -l`] : [];
+      const proc = pty.spawn(command, args, {
+        name: 'xterm-256color',
+        cols: 120,
+        rows: 36,
+        cwd,
+        env: mergedEnv
+      });
+      this.activeCloudSessions.set(paneId, { proc, cwd, startedAt: Date.now() });
+      return proc;
+    }
+
+    // Fallback seguro caso node-pty não esteja compilado na máquina host
+    const child = spawn(defaultShell, [], { cwd, env: mergedEnv, shell: true });
+    const adapter = {
+      write: (data) => child.stdin?.write(data),
+      resize: () => {},
+      kill: (sig) => child.kill(sig),
+      onData: (cb) => {
+        child.stdout?.on('data', (d) => cb(d.toString()));
+        child.stderr?.on('data', (d) => cb(d.toString()));
+      },
+      onExit: (cb) => {
+        child.on('close', (exitCode, signal) => cb({ exitCode: exitCode ?? 0, signal }));
+      }
+    };
+    this.activeCloudSessions.set(paneId, { proc: adapter, cwd, startedAt: Date.now() });
+    return adapter;
+  }
+}
+
 /**
  * Gestor de Terminais Interativos (PTY) para a interface do HiperCloudShell
  */
@@ -36,7 +90,7 @@ export class TerminalManager extends EventEmitter {
   constructor(mainWindow = null, cloudShellProvider = null) {
     super();
     this.mainWindow = mainWindow;
-    this.cloudShellProvider = cloudShellProvider;
+    this.cloudShellProvider = cloudShellProvider || new CloudShellEngine();
     this.sessions = new Map(); // termId -> { type, proc, cwd, meta }
   }
 

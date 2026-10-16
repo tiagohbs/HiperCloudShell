@@ -1,8 +1,7 @@
-# Orquestrador Node.js: Maestro (Dynamic Workflows & Primitivas Autônomas)
+# Orquestrador Node.js: Maestro (orchestrator/maestro.js)
 
 > **Arquivo de Origem:** orchestrator/maestro.js  
-> **Tamanho:** 877 linhas (30.3 KB)  
-> **Descrição:** Motor central de workflows autônomos em sandbox node:vm com primitivas speculate(), consensus(), parallel(), pipeline(), gates determinísticos e hot-takeover.
+> **Tamanho:** 1041 linhas (36.9 KB)  
 
 `javascript
 // electron/orchestrator/maestro.js
@@ -297,6 +296,7 @@ return await agent(
           throw new Error('WORKFLOW_PAUSED');
         }
 
+        const agentStartTime = Date.now();
         const agentId = `${runId}_ag_${callIndex}`;
         this.blackboard.recordAgentStart(runId, {
           id: agentId,
@@ -342,6 +342,26 @@ return await agent(
             signal: abortController.signal
           });
 
+          const elapsedMs = Date.now() - agentStartTime;
+          const thresholdMs = this.blackboard.state?.selfImprovement?.bottleneckThresholdMs || 45000;
+
+          if (elapsedMs > thresholdMs) {
+            const btlNotif = this.blackboard.emitSystemNotification({
+              kind: 'bottleneck',
+              severity: 'warning',
+              title: `Gargalo Detectado em ${agentOptions.label || agentId}`,
+              message: `O subagente levou ${(elapsedMs / 1000).toFixed(1)}s (limite: ${thresholdMs / 1000}s) usando ${ rawResponse.provider || agentOptions.provider }.`,
+              sourceTrace: {
+                runId,
+                agentId,
+                conversationId: rawResponse.conversationId,
+                provider: rawResponse.provider || agentOptions.provider,
+                worktreePath: workingDir
+              }
+            });
+            this.sendIpc('ultracode:system-notification', btlNotif);
+          }
+
           if (rawResponse.conversationId) {
             const ag = run.agents.find((a) => a.id === agentId);
             if (ag) {
@@ -377,6 +397,25 @@ return await agent(
         return validatedOutput;
       } catch (err) {
         this.blackboard.recordAgentFailure(runId, callIndex, err);
+        const currentAgent = run.agents[callIndex] || {};
+        const errNotif = this.blackboard.emitSystemNotification({
+          kind: 'error',
+          severity: 'critical',
+          title: `Falha no Agente ${agentOptions.label || callIndex}`,
+          message: err.message || String(err),
+          sourceTrace: {
+            runId,
+            agentId: currentAgent.id,
+            conversationId: currentAgent.conversationId,
+            provider: currentAgent.provider,
+            worktreePath: currentAgent.cwd || workingDir
+          }
+        });
+        this.sendIpc('ultracode:system-notification', errNotif);
+
+        if (this.blackboard.state?.selfImprovement?.continuousMode) {
+          this.triggerContinuousSelfImprovement(errNotif).catch(() => {});
+        }
         throw err;
       } finally {
         semaphore.release();
@@ -866,6 +905,130 @@ return await agent(
     }
 
     return this.blackboard.getSnapshot();
+  }
+
+  /**
+   * Escolhe o motor de Auto-Melhoria conforme a configuração do usuário ('claude' | 'antigravity' | 'hybrid')
+   */
+  resolveSelfImprovementEngine(category = 'error_fix') {
+    const cfg = this.blackboard.state?.selfImprovement || {};
+    const pref = cfg.preferredEngine || this.llmAdapter?.defaultProvider || 'hybrid';
+    if (pref === 'claude' || pref === 'antigravity') return pref;
+    // No modo hybrid: Antigravity diagnostica gargalos rápidos; Claude refatora erros estruturais
+    return category === 'bottleneck_opt' ? 'antigravity' : 'claude';
+  }
+
+  /**
+   * Aciona o Agente de Auto-Melhoria em uma Worktree isolada e executa os testes via CloudShell
+   */
+  async triggerContinuousSelfImprovement(notification) {
+    const cfg = this.blackboard.state?.selfImprovement || {};
+    if (cfg.enabled === false) return null;
+
+    const impId = `imp_${crypto.randomBytes(4).toString('hex')}`;
+    const paneId = `cloudshell_${impId}`;
+    const category = notification.kind === 'bottleneck' ? 'bottleneck_opt' : 'error_fix';
+    const engine = this.resolveSelfImprovementEngine(category);
+
+    // 1. Aloca Worktree isolada para produzir e testar a melhoria com segurança
+    const wt = await this.worktreeManager.createIsolatedWorktree(impId);
+
+    const impTask = this.blackboard.registerImprovementTask({
+      id: impId,
+      sourceNotificationCode: notification.code,
+      category,
+      status: 'running_cloudshell',
+      engine,
+      cloudshellTermId: paneId,
+      worktreePath: wt.worktreePath,
+      branchName: wt.branchName,
+      sourceTrace: notification.sourceTrace,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+
+    // Vincula a notificação original ao ID da melhoria para o botão "Ir até o Sistema de Melhoria"
+    notification.improvementId = impId;
+    this.sendIpc('ultracode:improvement-update', impTask);
+
+    // 2. Abre uma sessão CloudShell se o TerminalManager estiver ativo
+    if (this.terminalManager) {
+      this.terminalManager.createSession(paneId, {
+        cwd: wt.worktreePath,
+        meta: { improvementId: impId, engine, sourceCode: notification.code }
+      });
+    }
+
+    try {
+      const prompt = [
+        `[AUTO-MELHORIA CONTÍNUA HIPERCLOUDSHELL - CÓDIGO ${notification.code}]`,
+        `Categoria: ${category} | Motor Ativo: ${engine}`,
+        `Evento Detectado: ${notification.title} - ${notification.message}`,
+        `Origem: Agente=${notification.sourceTrace?.agentId || 'N/A'}, Diretório=${notification.sourceTrace?.worktreePath || this.repoRoot}`,
+        `Instruções:`,
+        `1. Analise a causa raiz do erro ou gargalo reportado.`,
+        `2. Aplique a correção ou otimização de fluxo diretamente nos arquivos desta worktree.`,
+        `3. Retorne um JSON com { "rootCause": "...", "appliedFix": "...", "changedFiles": ["..."] }.`
+      ].join('\n');
+
+      const healResult = await this.runSubagentWorker({
+        agentId: impId,
+        prompt,
+        cwd: wt.worktreePath,
+        provider: engine,
+        effort: 'high',
+        acceptEdits: true,
+        label: `self-healer:${notification.code}`
+      });
+
+      impTask.status = 'validating_gate';
+      impTask.diagnosis = typeof healResult.output === 'string'
+        ? healResult.output.slice(0, 500)
+        : JSON.stringify(healResult.output).slice(0, 500);
+      impTask.updatedAt = Date.now();
+      this.sendIpc('ultracode:improvement-update', impTask);
+
+      // 3. Valida no CloudShell / Gate Determinístico antes de commitar a melhoria
+      const gateCheck = await this.llmAdapter?.runDeterministicCommand
+        ? await this.llmAdapter.runDeterministicCommand('npm test', { cwd: wt.worktreePath })
+        : { ok: true };
+
+      if (gateCheck.ok) {
+        await this.worktreeManager.commitWorktreeChanges(
+          wt.worktreePath,
+          `self-improvement(${notification.code}): auto-healed by ${engine}`
+        );
+        impTask.status = 'ready_to_merge';
+      } else {
+        impTask.status = 'needs_human_review';
+      }
+
+      impTask.updatedAt = Date.now();
+      this.sendIpc('ultracode:improvement-update', impTask);
+
+      // Emite notificação de melhoria concluída com link para o Sistema de Melhoria
+      this.blackboard.emitSystemNotification({
+        code: `HCS-IMP-${impId.slice(-4).toUpperCase()}`,
+        kind: 'improvement',
+        severity: 'info',
+        title: `Melhoria Produzida via ${engine.toUpperCase()}`,
+        message: `Correção para ${notification.code} validada na worktree ${wt.branchName}.`,
+        sourceTrace: {
+          agentId: impId,
+          termId: paneId,
+          provider: engine,
+          worktreePath: wt.worktreePath
+        },
+        improvementId: impId
+      });
+
+      return impTask;
+    } catch (err) {
+      impTask.status = 'failed';
+      impTask.error = err.message;
+      this.sendIpc('ultracode:improvement-update', impTask);
+      return impTask;
+    }
   }
 
   broadcastState() {

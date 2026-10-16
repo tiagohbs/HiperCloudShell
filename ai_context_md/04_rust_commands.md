@@ -1,8 +1,7 @@
-# Núcleo Rust: Handlers de Comandos Tauri v2 (IPC)
+# Núcleo Rust: Handlers IPC Tauri v2 (src-tauri/src/commands.rs)
 
 > **Arquivo de Origem:** src-tauri/src/commands.rs  
-> **Tamanho:** 551 linhas (17.2 KB)  
-> **Descrição:** Endpoints invocáveis pelo frontend para gerenciamento de worktrees com junctions, verificação de Merkle Cache, PTY e execução de Quality Gates.
+> **Tamanho:** 808 linhas (26.3 KB)  
 
 `rust
 use std::path::PathBuf;
@@ -13,7 +12,10 @@ use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-use crate::blackboard::{BlackboardState, MerkleCacheEntry, MerkleQueryInput};
+use crate::blackboard::{
+    BlackboardState, ImprovementTask, MerkleCacheEntry, MerkleQueryInput,
+    NotificationSourceTrace, SelfImprovementConfig, SystemNotification,
+};
 use crate::dual_engine::DualEngineAdapter;
 use crate::pty_manager::PtyManager;
 use crate::squads::{self, SquadTemplate};
@@ -554,5 +556,259 @@ pub async fn commit_merkle_replay(
     entry: MerkleCacheEntry,
 ) -> Result<(), String> {
     blackboard.commit_merkle_entry(entry)
+}
+
+#[tauri::command]
+pub fn ultracode_get_self_improvement_config(
+    state: State<AppState>,
+) -> Result<SelfImprovementConfig, String> {
+    let bb = state.blackboard.lock()?;
+    Ok(bb.self_improvement_config.clone())
+}
+
+#[tauri::command]
+pub fn ultracode_set_self_improvement_config(
+    config: SelfImprovementConfig,
+    state: State<AppState>,
+    app: AppHandle,
+) -> Result<SelfImprovementConfig, String> {
+    let mut bb = state.blackboard.lock()?;
+    bb.self_improvement_config = config.clone();
+    let _ = state.blackboard.persist_atomic(&bb);
+    drop(bb);
+    let _ = app.emit("ultracode:self-improvement-config", &config);
+    Ok(config)
+}
+
+#[tauri::command]
+pub fn ultracode_get_notifications(
+    state: State<AppState>,
+) -> Result<Vec<SystemNotification>, String> {
+    let bb = state.blackboard.lock()?;
+    Ok(bb.notifications.iter().cloned().collect())
+}
+
+#[tauri::command]
+pub fn ultracode_get_improvements(
+    state: State<AppState>,
+) -> Result<Vec<ImprovementTask>, String> {
+    let bb = state.blackboard.lock()?;
+    Ok(bb.improvements.values().cloned().collect())
+}
+
+/// Segue a notificação até a fonte do agente (abre Hot-Takeover no PTY se necessário)
+/// ou retorna a referência direta para o painel do Sistema de Auto-Melhoria
+#[tauri::command]
+pub async fn ultracode_follow_notification_source(
+    notification_id: String,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<serde_json::Value, String> {
+    let (notif, imp_task) = {
+        let mut bb = state.blackboard.lock()?;
+        let found = bb
+            .notifications
+            .iter_mut()
+            .find(|n| n.id == notification_id || n.code == notification_id)
+            .cloned()
+            .ok_or_else(|| format!("Notificação '{}' não encontrada.", notification_id))?;
+
+        if let Some(n) = bb
+            .notifications
+            .iter_mut()
+            .find(|n| n.id == notification_id || n.code == notification_id)
+        {
+            n.acknowledged = true;
+        }
+        let imp = found
+            .improvement_id
+            .as_ref()
+            .and_then(|id| bb.improvements.get(id).cloned());
+        let _ = state.blackboard.persist_atomic(&bb);
+        (found, imp)
+    };
+
+    // Caso 1: É uma notificação de Melhoria ou já possui tarefa ativa no Sistema de Melhoria
+    if notif.kind == "improvement" || imp_task.is_some() {
+        return Ok(serde_json::json!({
+            "action": "OPEN_IMPROVEMENT_SYSTEM",
+            "notification": notif,
+            "improvement": imp_task
+        }));
+    }
+
+    // Caso 2: Erro ou Gargalo -> Segue o agente até a fonte (PTY / Takeover / Worktree)
+    let trace = &notif.source_trace;
+    let target_term_id = trace
+        .term_id
+        .clone()
+        .or_else(|| trace.pane_id.clone())
+        .unwrap_or_else(|| format!("takeover_{}", notif.id));
+
+    if state.pty_manager.inspect_session(&target_term_id).await.is_err() {
+        if let Some(ref provider) = trace.provider {
+            if provider == "claude" || provider == "antigravity" {
+                let _ = state
+                    .pty_manager
+                    .spawn_interactive_takeover(
+                        target_term_id.clone(),
+                        provider.clone(),
+                        trace.conversation_id.clone(),
+                        trace.worktree_path.clone(),
+                        app.clone(),
+                    )
+                    .await;
+            } else {
+                let _ = state
+                    .pty_manager
+                    .create_session(
+                        target_term_id.clone(),
+                        trace.worktree_path.clone(),
+                        None,
+                        None,
+                        app.clone(),
+                    )
+                    .await;
+            }
+        }
+    }
+
+    Ok(serde_json::json!({
+        "action": "FOLLOW_AGENT_SOURCE",
+        "termId": target_term_id,
+        "trace": trace,
+        "notification": notif
+    }))
+}
+
+/// Dispara o Agente de Auto-Melhoria no CloudShell em uma Worktree isolada
+#[tauri::command]
+pub async fn ultracode_trigger_self_improvement(
+    notification_code: Option<String>,
+    custom_goal: Option<String>,
+    engine_override: Option<String>,
+    target_files: Option<Vec<String>>,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<serde_json::Value, String> {
+    let imp_id = format!("imp_{}", chrono::Utc::now().timestamp_millis());
+    let cloudshell_term_id = format!("cs_imp_{}", imp_id);
+
+    // 1. Adquire Worktree isolada (<150ms via Warm Pool)
+    let lease = state.worktree_manager.acquire_worktree(&imp_id, "HEAD")?;
+    let _ = state.worktree_manager.replenish_warm_pool();
+    let wt_path = lease.worktree_path.to_string_lossy().to_string();
+
+    // 2. Resolve o motor (Claude, Antigravity ou Hybrid)
+    let (chosen_engine, notif_context) = {
+        let bb = state.blackboard.lock()?;
+        let pref = engine_override.unwrap_or_else(|| bb.self_improvement_config.preferred_engine.clone());
+        let resolved = if pref == "hybrid" {
+            // No modo híbrido: Antigravity para gargalos de performance, Claude para erros complexos/arquitetura
+            if notification_code.as_deref().unwrap_or("").contains("BTL") {
+                "antigravity".to_string()
+            } else {
+                "claude".to_string()
+            }
+        } else {
+            pref
+        };
+
+        let ctx = notification_code
+            .as_ref()
+            .and_then(|code| bb.notifications.iter().find(|n| &n.code == code || &n.id == code))
+            .map(|n| format!("[{}] {}: {}", n.code, n.title, n.message))
+            .unwrap_or_else(|| "Melhoria contínua solicitada pelo orquestrador.".to_string());
+
+        (resolved, ctx)
+    };
+
+    let code_str = notification_code.unwrap_or_else(|| format!("HCS-IMP-{}", chrono::Utc::now().timestamp_millis() % 1000));
+    let goal = custom_goal.unwrap_or_else(|| notif_context.clone());
+
+    let task = ImprovementTask {
+        id: imp_id.clone(),
+        source_notification_code: code_str.clone(),
+        category: if code_str.contains("BTL") {
+            "bottleneck_opt".to_string()
+        } else if code_str.contains("ERR") {
+            "error_fix".to_string()
+        } else {
+            "continuous_improvement".to_string()
+        },
+        status: "running_cloudshell".to_string(),
+        engine: chosen_engine.clone(),
+        cloudshell_term_id: cloudshell_term_id.clone(),
+        worktree_path: Some(wt_path.clone()),
+        branch_name: Some(lease.branch_name.clone()),
+        target_files: target_files.unwrap_or_default(),
+        diagnosis: Some(format!("Diagnosticando via {} no CloudShell...", chosen_engine)),
+        patch_summary: None,
+        created_at: chrono::Utc::now().timestamp_millis(),
+        updated_at: chrono::Utc::now().timestamp_millis(),
+    };
+
+    let notif = SystemNotification {
+        id: format!("notif_{}", imp_id),
+        code: code_str.clone(),
+        kind: "improvement".to_string(),
+        severity: "info".to_string(),
+        title: format!("Auto-Melhoria Iniciada ({})", chosen_engine.to_uppercase()),
+        message: goal.clone(),
+        timestamp: chrono::Utc::now().timestamp_millis(),
+        acknowledged: false,
+        source_trace: NotificationSourceTrace {
+            run_id: None,
+            agent_id: Some(imp_id.clone()),
+            term_id: Some(cloudshell_term_id.clone()),
+            pane_id: Some(cloudshell_term_id.clone()),
+            conversation_id: None,
+            provider: Some(chosen_engine.clone()),
+            worktree_path: Some(wt_path.clone()),
+            file_target: task.target_files.first().cloned(),
+            line_hint: None,
+        },
+        improvement_id: Some(imp_id.clone()),
+    };
+
+    {
+        let mut bb = state.blackboard.lock()?;
+        bb.register_improvement(task.clone());
+        bb.push_notification(notif.clone());
+        let _ = state.blackboard.persist_atomic(&bb);
+    }
+
+    let _ = app.emit("ultracode:system-notification", &notif);
+    let _ = app.emit("ultracode:improvement-update", &task);
+
+    // 3. Dispara o agente dentro do CloudShell PTY conectado à Worktree
+    let prompt = format!(
+        "SISTEMA DE AUTO-MELHORIA HIPERCLOUDSHELL [Código: {}].\nContexto/Alvo: {}\n1. Rastreie a causa raiz nos arquivos do projeto.\n2. Implemente a melhoria/correção mínima e segura nesta worktree.\n3. Execute 'npm test' para validar os Quality Gates.\n4. Ao concluir com testes verdes, imprima <<MAESTRO_TASK_DONE>>.",
+        code_str, goal
+    );
+
+    state
+        .pty_manager
+        .spawn_cloudshell_improvement_agent(
+            cloudshell_term_id.clone(),
+            chosen_engine,
+            wt_path,
+            prompt,
+            app,
+        )
+        .await?;
+
+    Ok(serde_json::json!({
+        "improvement": task,
+        "notification": notif
+    }))
+}
+
+#[tauri::command]
+pub async fn ultracode_cloudshell_inspect(
+    term_id: String,
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    state.pty_manager.inspect_session(&term_id).await
 }
 `
