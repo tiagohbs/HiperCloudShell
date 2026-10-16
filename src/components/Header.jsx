@@ -11,6 +11,8 @@ export default function Header({
   onToggleEffort,
   consumedTokens = 0,
   maxTokensBudget = 50000,
+  unlimitedTokens = false,
+  onToggleUnlimitedTokens,
   unreadNotificationsCount = 0,
   onToggleNotifications,
   onOpenNewWorkflow,
@@ -99,7 +101,25 @@ export default function Header({
           <span className="text-espresso-500 dark:text-denim-400">Tokens:</span>
           <span className="text-gold-700 dark:text-gold-400 font-bold">{consumedTokens.toLocaleString()}</span>
           <span className="text-espresso-300 dark:text-denim-600">/</span>
-          <span className="text-espresso-600 dark:text-denim-300">{(maxTokensBudget / 1000).toFixed(0)}k</span>
+          {unlimitedTokens ? (
+            <button
+              type="button"
+              onClick={() => onToggleUnlimitedTokens && onToggleUnlimitedTokens(false)}
+              className="text-emerald-700 dark:text-emerald-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+              title="Teto desativado (Clique para reativar teto)"
+            >
+              <span>∞ Ilimitado</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onToggleUnlimitedTokens && onToggleUnlimitedTokens(true)}
+              className="text-espresso-600 dark:text-denim-300 hover:text-gold-600 font-medium cursor-pointer"
+              title="Teto ativo (Clique para desativar teto)"
+            >
+              {(maxTokensBudget / 1000).toFixed(0)}k
+            </button>
+          )}
         </div>
 
         {/* Dual Engine Selector */}

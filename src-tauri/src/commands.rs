@@ -33,9 +33,55 @@ pub struct MerkleLookupResponse {
 
 #[tauri::command]
 pub fn ultracode_set_provider(provider: String, state: State<AppState>) -> Result<serde_json::Value, String> {
-    let mut curr = state.current_provider.lock().map_err(|e| e.to_string())?;
-    *curr = provider.clone();
+    {
+        let mut curr = state.current_provider.lock().map_err(|e| e.to_string())?;
+        *curr = provider.clone();
+    }
+    let mut bb = state.blackboard.lock().map_err(|e| e.to_string())?;
+    bb.current_provider = provider.clone();
+    let _ = state.blackboard.persist_atomic(&bb);
     Ok(serde_json::json!({ "provider": provider }))
+}
+
+#[tauri::command]
+pub fn ultracode_set_token_budget_unlimited(
+    unlimited: bool,
+    state: State<AppState>,
+) -> Result<serde_json::Value, String> {
+    let mut bb = state.blackboard.lock().map_err(|e| e.to_string())?;
+    bb.unlimited_tokens = unlimited;
+    let _ = state.blackboard.persist_atomic(&bb);
+    Ok(serde_json::json!({ "unlimitedTokens": unlimited }))
+}
+
+#[tauri::command]
+pub fn ultracode_set_global_token_budget(
+    budget: u64,
+    state: State<AppState>,
+) -> Result<serde_json::Value, String> {
+    let mut bb = state.blackboard.lock().map_err(|e| e.to_string())?;
+    bb.max_token_budget = budget;
+    bb.budget.max_total_tokens = budget;
+    let _ = state.blackboard.persist_atomic(&bb);
+    Ok(serde_json::json!({ "maxTokensBudget": budget }))
+}
+
+#[tauri::command]
+pub fn ultracode_get_app_settings(state: State<AppState>) -> Result<serde_json::Value, String> {
+    let bb = state.blackboard.lock().map_err(|e| e.to_string())?;
+    let provider = state
+        .current_provider
+        .lock()
+        .map(|p| p.clone())
+        .unwrap_or_else(|_| bb.current_provider.clone());
+
+    Ok(serde_json::json!({
+        "provider": provider,
+        "effort": bb.session_effort,
+        "maxTokensBudget": bb.max_token_budget,
+        "unlimitedTokens": bb.unlimited_tokens,
+        "selfImprovementConfig": bb.self_improvement_config,
+    }))
 }
 
 #[tauri::command]

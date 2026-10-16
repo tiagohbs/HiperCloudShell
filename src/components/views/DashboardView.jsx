@@ -20,6 +20,7 @@ export default function DashboardView({
   onOpenApprovalGate,
   consumedTokens = 0,
   maxTokensBudget = 50000,
+  unlimitedTokens = false,
   provider = 'hybrid',
   effort = 'ultracode',
   squadCatalog = [],
@@ -103,8 +104,12 @@ export default function DashboardView({
             <div className="text-xl font-extrabold text-gold-700 dark:text-gold-400 font-mono mt-0.5">
               {consumedTokens.toLocaleString()}
             </div>
-            <div className="text-[10px] text-espresso-500 dark:text-denim-400 font-mono mt-1">
-              de {(maxTokensBudget / 1000).toFixed(0)}k configurados
+            <div className="text-[10px] font-mono mt-1">
+              {unlimitedTokens ? (
+                <span className="text-emerald-700 dark:text-emerald-400 font-bold">♾️ Sem teto (Ilimitado)</span>
+              ) : (
+                <span className="text-espresso-500 dark:text-denim-400">de {(maxTokensBudget / 1000).toFixed(0)}k configurados</span>
+              )}
             </div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-beige-200 dark:bg-denim-800 border border-beige-300 dark:border-denim-700 text-espresso-800 dark:text-denim-200 flex items-center justify-center shadow-xs">

@@ -26,13 +26,18 @@ pub fn run() {
     let blackboard = BlackboardState::new(project_root.clone(), 500_000)
         .expect("Falha ao inicializar BlackboardState");
 
+    let initial_provider = blackboard
+        .lock()
+        .map(|bb| bb.current_provider.clone())
+        .unwrap_or_else(|_| "hybrid".to_string());
+
     let app_state = AppState {
         project_root: project_root.clone(),
         pty_manager: Arc::new(PtyManager::new()),
         blackboard: blackboard.clone(),
         worktree_manager: worktree_mgr.clone(),
         dual_engine: Arc::new(DualEngineAdapter::new()),
-        current_provider: Arc::new(Mutex::new("hybrid".to_string())),
+        current_provider: Arc::new(Mutex::new(initial_provider)),
     };
 
     tauri::Builder::default()
@@ -42,6 +47,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::ultracode_set_provider,
             commands::ultracode_set_token_budget,
+            commands::ultracode_set_token_budget_unlimited,
+            commands::ultracode_set_global_token_budget,
+            commands::ultracode_get_app_settings,
             commands::ultracode_set_effort,
             commands::ultracode_get_squad_catalog,
             commands::ultracode_launch_squad,

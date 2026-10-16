@@ -94,10 +94,15 @@ export function initTauriBridge() {
     onImprovementUpdate: (callback) => safeListen('ultracode:improvement-update', callback),
     onCloudShellAnomaly: (callback) => safeListen('ultracode:cloudshell-anomaly', callback),
 
-    // Commands
+    // Commands & Persisted Settings
+    getAppSettings: () => safeInvoke('ultracode_get_app_settings'),
     setProvider: (provider) => safeInvoke('ultracode_set_provider', { provider }),
     setTokenBudget: (runId, maxTokensPerRun) =>
       safeInvoke('ultracode_set_token_budget', { runId, maxTokensPerRun: Number(maxTokensPerRun) || 0 }),
+    setTokenBudgetUnlimited: (unlimited) =>
+      safeInvoke('ultracode_set_token_budget_unlimited', { unlimited: Boolean(unlimited) }),
+    setGlobalTokenBudget: (budget) =>
+      safeInvoke('ultracode_set_global_token_budget', { budget: Number(budget) || 0 }),
     setEffort: (effortLevel) => safeInvoke('ultracode_set_effort', { effortLevel }),
     getSquadCatalog: () => safeInvoke('ultracode_get_squad_catalog'),
     launchSquad: (slug, customPrompt, applyRecommendedCaps = true) =>

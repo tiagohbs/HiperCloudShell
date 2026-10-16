@@ -11,6 +11,8 @@ export default function SettingsModal({
   onToggleEffort,
   maxTokensBudget,
   onChangeMaxTokensBudget,
+  unlimitedTokens = false,
+  onToggleUnlimitedTokens,
   theme = 'light',
   onToggleTheme
 }) {
@@ -239,23 +241,60 @@ export default function SettingsModal({
                   <span className="text-xs font-bold text-espresso-950 dark:text-denim-50 font-mono">
                     Teto Máximo de Tokens por Run
                   </span>
-                  <span className="text-xs font-bold text-gold-700 dark:text-gold-400 font-mono bg-gold-100 dark:bg-gold-950/70 px-2 py-0.5 rounded border border-gold-300 dark:border-gold-700">
-                    {maxTokensBudget.toLocaleString()} tokens
+                  <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded border ${
+                    unlimitedTokens
+                      ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-700'
+                      : 'text-gold-700 dark:text-gold-400 bg-gold-100 dark:bg-gold-950/70 border-gold-300 dark:border-gold-700'
+                  }`}>
+                    {unlimitedTokens ? '♾️ Ilimitado (Sem Teto)' : `${maxTokensBudget.toLocaleString()} tokens`}
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="10000"
-                  max="200000"
-                  step="5000"
-                  value={maxTokensBudget}
-                  onChange={(e) => onChangeMaxTokensBudget(Number(e.target.value))}
-                  className="w-full accent-gold-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] font-mono text-espresso-500 dark:text-denim-400">
-                  <span>10.000 (Rápido)</span>
-                  <span>50.000 (Padrão)</span>
-                  <span>200.000 (Complexo)</span>
+
+                {/* Botão de Desativação / Ativação do Teto Máximo */}
+                <div className="p-3.5 rounded-xl bg-beige-100/70 dark:bg-denim-900 border border-beige-300 dark:border-denim-750 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-espresso-950 dark:text-denim-50 font-mono flex items-center gap-2">
+                      <span>Restrição Financeira:</span>
+                      <span className={unlimitedTokens ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' : 'text-gold-700 dark:text-gold-400 font-extrabold'}>
+                        {unlimitedTokens ? 'DESATIVADA (ILIMITADO)' : 'ATIVA (COM TETO)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-espresso-600 dark:text-denim-300 font-mono mt-1 leading-relaxed">
+                      {unlimitedTokens
+                        ? 'O disjuntor financeiro está desligado. Suas execuções e subagentes não serão pausados por estouro de orçamento.'
+                        : `O disjuntor pausa os subagentes automaticamente caso atinjam ${maxTokensBudget.toLocaleString()} tokens.`}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onToggleUnlimitedTokens && onToggleUnlimitedTokens(!unlimitedTokens)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-mono font-bold transition cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap border shadow-xs ${
+                      unlimitedTokens
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-emerald-700/20'
+                        : 'bg-gradient-to-r from-gold-500 via-yellow-400 to-amber-500 hover:from-gold-400 hover:to-amber-400 text-espresso-950 border-gold-300 shadow-gold'
+                    }`}
+                  >
+                    {unlimitedTokens ? '🔒 Reativar Teto Máximo' : '♾️ Desativar Teto Máximo'}
+                  </button>
+                </div>
+
+                <div className={`space-y-1 transition-opacity ${unlimitedTokens ? 'opacity-40 pointer-events-none' : ''}`}>
+                  <input
+                    type="range"
+                    min="10000"
+                    max="200000"
+                    step="5000"
+                    disabled={unlimitedTokens}
+                    value={maxTokensBudget}
+                    onChange={(e) => onChangeMaxTokensBudget(Number(e.target.value))}
+                    className="w-full accent-gold-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-espresso-500 dark:text-denim-400">
+                    <span>10.000 (Rápido)</span>
+                    <span>50.000 (Padrão)</span>
+                    <span>200.000 (Complexo)</span>
+                  </div>
                 </div>
               </div>
 

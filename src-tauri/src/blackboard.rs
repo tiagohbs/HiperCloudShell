@@ -173,6 +173,10 @@ pub struct BlackboardData {
     pub session_effort: String,
     #[serde(default = "default_engine_effort_caps")]
     pub engine_effort_caps: HashMap<String, String>,
+    #[serde(default = "default_current_provider")]
+    pub current_provider: String,
+    #[serde(default)]
+    pub unlimited_tokens: bool,
     #[serde(default)]
     pub budget: GlobalBudget,
     #[serde(default)]
@@ -188,7 +192,11 @@ pub struct BlackboardData {
 }
 
 fn default_session_effort() -> String {
-    "high".to_string()
+    "ultracode".to_string()
+}
+
+fn default_current_provider() -> String {
+    "hybrid".to_string()
 }
 
 fn default_engine_effort_caps() -> HashMap<String, String> {
@@ -208,6 +216,8 @@ impl Default for BlackboardData {
             node_merkle_map: HashMap::new(),
             session_effort: default_session_effort(),
             engine_effort_caps: default_engine_effort_caps(),
+            current_provider: default_current_provider(),
+            unlimited_tokens: false,
             budget: GlobalBudget::default(),
             runs: HashMap::new(),
             telemetry_sliding_window: VecDeque::with_capacity(40),
@@ -433,7 +443,11 @@ impl BlackboardState {
 
         guard.consumed_tokens = guard.consumed_tokens.saturating_add(delta_tokens);
         guard.budget.consumed_tokens = guard.consumed_tokens;
-        let breaker_tripped = guard.consumed_tokens > guard.max_token_budget;
+        let breaker_tripped = if guard.unlimited_tokens || guard.max_token_budget == 0 {
+            false
+        } else {
+            guard.consumed_tokens > guard.max_token_budget
+        };
 
         self.persist_atomic(&guard)?;
         Ok((guard.consumed_tokens, breaker_tripped))

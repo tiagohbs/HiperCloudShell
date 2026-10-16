@@ -400,10 +400,39 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedApprovalRun, setSelectedApprovalRun] = useState(null);
 
-  // Parâmetros Globais do Motor
-  const [effort, setEffort] = useState('ultracode'); // 'high' | 'ultracode'
-  const [provider, setProvider] = useState('hybrid'); // 'claude' | 'antigravity' | 'hybrid'
-  const [maxTokensBudget, setMaxTokensBudget] = useState(50000); // Teto financeiro padrão
+  // Parâmetros Globais do Motor com Persistência Local e Sincronização
+  const [effort, setEffort] = useState(() => {
+    try {
+      return localStorage.getItem('hcs_effort') || 'ultracode';
+    } catch {
+      return 'ultracode';
+    }
+  });
+
+  const [provider, setProvider] = useState(() => {
+    try {
+      return localStorage.getItem('hcs_provider') || 'hybrid';
+    } catch {
+      return 'hybrid';
+    }
+  });
+
+  const [maxTokensBudget, setMaxTokensBudget] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem('hcs_token_budget'));
+      return saved > 0 ? saved : 50000;
+    } catch {
+      return 50000;
+    }
+  });
+
+  const [unlimitedTokens, setUnlimitedTokens] = useState(() => {
+    try {
+      return localStorage.getItem('hcs_unlimited_tokens') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Catálogo de Squads
   const [squadCatalog, setSquadCatalog] = useState(DEFAULT_SQUAD_CATALOG);
@@ -467,13 +496,19 @@ export default function App() {
   const [pixelForgeCustomArg, setPixelForgeCustomArg] = useState('');
   const [pixelForgeFeedback, setPixelForgeFeedback] = useState(null);
 
-  // Configuração do Sistema de Auto-Melhoria Contínua
-  const [selfImpConfig, setSelfImpConfig] = useState({
-    enabled: true,
-    continuousMode: true,
-    preferredEngine: 'hybrid',
-    autoApplyCloudshell: true,
-    bottleneckThresholdMs: 45000
+  // Configuração do Sistema de Auto-Melhoria Contínua com Persistência
+  const [selfImpConfig, setSelfImpConfig] = useState(() => {
+    try {
+      const raw = localStorage.getItem('hcs_self_imp_config');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return {
+      enabled: true,
+      continuousMode: true,
+      preferredEngine: 'hybrid',
+      autoApplyCloudshell: true,
+      bottleneckThresholdMs: 45000
+    };
   });
 
   // Notificações Rastreáveis
@@ -665,6 +700,78 @@ export default function App() {
       });
     }
   }, []);
+
+  // Sincroniza Configurações Persistidas do Backend (Blackboard & AppState)
+  useEffect(() => {
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.getAppSettings) {
+      bridge.getAppSettings().then((settings) => {
+        if (!settings) return;
+        if (settings.provider) {
+          setProvider(settings.provider);
+          try { localStorage.setItem('hcs_provider', settings.provider); } catch {}
+        }
+        if (settings.effort) {
+          setEffort(settings.effort);
+          try { localStorage.setItem('hcs_effort', settings.effort); } catch {}
+        }
+        if (typeof settings.maxTokensBudget === 'number' && settings.maxTokensBudget > 0) {
+          setMaxTokensBudget(settings.maxTokensBudget);
+          try { localStorage.setItem('hcs_token_budget', String(settings.maxTokensBudget)); } catch {}
+        }
+        if (typeof settings.unlimitedTokens === 'boolean') {
+          setUnlimitedTokens(settings.unlimitedTokens);
+          try { localStorage.setItem('hcs_unlimited_tokens', String(settings.unlimitedTokens)); } catch {}
+        }
+        if (settings.selfImprovementConfig) {
+          setSelfImpConfig((prev) => ({ ...prev, ...settings.selfImprovementConfig }));
+          try { localStorage.setItem('hcs_self_imp_config', JSON.stringify(settings.selfImprovementConfig)); } catch {}
+        }
+      }).catch((err) => {
+        console.warn('[Settings] Falha ao carregar configurações salvas no backend:', err);
+      });
+    }
+  }, []);
+
+  // Handlers Persistentes de Configurações
+  const handleProviderChange = (newProv) => {
+    setProvider(newProv);
+    try { localStorage.setItem('hcs_provider', newProv); } catch {}
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.setProvider) bridge.setProvider(newProv);
+  };
+
+  const handleEffortChange = (newEffort) => {
+    setEffort(newEffort);
+    try { localStorage.setItem('hcs_effort', newEffort); } catch {}
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.setEffort) bridge.setEffort(newEffort);
+  };
+
+  const handleMaxTokensBudgetChange = (newBudget) => {
+    setMaxTokensBudget(newBudget);
+    try { localStorage.setItem('hcs_token_budget', String(newBudget)); } catch {}
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.setGlobalTokenBudget) bridge.setGlobalTokenBudget(newBudget);
+  };
+
+  const handleToggleUnlimitedTokens = (unlimited) => {
+    const val = typeof unlimited === 'boolean' ? unlimited : !unlimitedTokens;
+    setUnlimitedTokens(val);
+    try { localStorage.setItem('hcs_unlimited_tokens', String(val)); } catch {}
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge?.setTokenBudgetUnlimited) bridge.setTokenBudgetUnlimited(val);
+  };
+
+  const handleUpdateSelfImprovementConfig = (patch) => {
+    setSelfImpConfig((prev) => {
+      const updated = { ...prev, ...patch };
+      try { localStorage.setItem('hcs_self_imp_config', JSON.stringify(updated)); } catch {}
+      const bridge = window.ultracodeAPI || window.hiperAPI;
+      if (bridge?.setSelfImprovementConfig) bridge.setSelfImprovementConfig(updated);
+      return updated;
+    });
+  };
 
   // Total de tokens consumidos
   const totalConsumedTokens = useMemo(() => {
@@ -934,7 +1041,8 @@ export default function App() {
   };
 
   const handleApproveGate = async (run) => {
-    await handleApproveRun(run.id, editingScript || run.script, { maxTokensPerRun: maxTokensBudget });
+    const effectiveLimit = unlimitedTokens ? 0 : maxTokensBudget;
+    await handleApproveRun(run.id, editingScript || run.script, { maxTokensPerRun: effectiveLimit });
     setWorkflowRuns((prev) => ({
       ...prev,
       [run.id]: { ...run, status: 'completed', currentPhase: 'Merge Concluído na Main' }
@@ -984,19 +1092,13 @@ export default function App() {
           activeView={activeView}
           activeRun={activeRun}
           provider={provider}
-          onChangeProvider={(newProv) => {
-            setProvider(newProv);
-            const bridge = window.ultracodeAPI || window.hiperAPI;
-            if (bridge?.setProvider) bridge.setProvider(newProv);
-          }}
+          onChangeProvider={handleProviderChange}
           effort={effort}
-          onToggleEffort={(newEffort) => {
-            setEffort(newEffort);
-            const bridge = window.ultracodeAPI || window.hiperAPI;
-            if (bridge?.setEffort) bridge.setEffort(newEffort);
-          }}
+          onToggleEffort={handleEffortChange}
           consumedTokens={totalConsumedTokens}
           maxTokensBudget={maxTokensBudget}
+          unlimitedTokens={unlimitedTokens}
+          onToggleUnlimitedTokens={handleToggleUnlimitedTokens}
           unreadNotificationsCount={notifications.filter((n) => !n.acknowledged).length}
           onToggleNotifications={() => setIsNotificationsOpen(true)}
           onOpenNewWorkflow={() => setIsNewWorkflowOpen(true)}
@@ -1016,6 +1118,7 @@ export default function App() {
               onOpenApprovalGate={handleOpenApprovalGate}
               consumedTokens={totalConsumedTokens}
               maxTokensBudget={maxTokensBudget}
+              unlimitedTokens={unlimitedTokens}
               provider={provider}
               effort={effort}
               squadCatalog={squadCatalog}
@@ -1080,9 +1183,7 @@ export default function App() {
           {activeView === 'self-improvement' && (
             <SelfImprovementView
               selfImpConfig={selfImpConfig}
-              updateSelfImprovementConfig={(patch) =>
-                setSelfImpConfig((prev) => ({ ...prev, ...patch }))
-              }
+              updateSelfImprovementConfig={handleUpdateSelfImprovementConfig}
               customImprovementGoal={customImprovementGoal}
               setCustomImprovementGoal={setCustomImprovementGoal}
               handleTriggerCloudShellImprovement={handleTriggerCloudShellImprovement}
@@ -1108,7 +1209,7 @@ export default function App() {
         onCustomWorkflow={handleCustomWorkflow}
         defaultProvider={provider}
         defaultEffort={effort}
-        defaultBudget={maxTokensBudget}
+        defaultBudget={unlimitedTokens ? 0 : maxTokensBudget}
       />
 
       <ApprovalGateModal
@@ -1124,19 +1225,13 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         provider={provider}
-        onChangeProvider={(newProv) => {
-          setProvider(newProv);
-          const bridge = window.ultracodeAPI || window.hiperAPI;
-          if (bridge?.setProvider) bridge.setProvider(newProv);
-        }}
+        onChangeProvider={handleProviderChange}
         effort={effort}
-        onToggleEffort={(newEff) => {
-          setEffort(newEff);
-          const bridge = window.ultracodeAPI || window.hiperAPI;
-          if (bridge?.setEffort) bridge.setEffort(newEff);
-        }}
+        onToggleEffort={handleEffortChange}
         maxTokensBudget={maxTokensBudget}
-        onChangeMaxTokensBudget={(val) => setMaxTokensBudget(val)}
+        onChangeMaxTokensBudget={handleMaxTokensBudgetChange}
+        unlimitedTokens={unlimitedTokens}
+        onToggleUnlimitedTokens={handleToggleUnlimitedTokens}
         theme={theme}
         onToggleTheme={handleToggleTheme}
       />
