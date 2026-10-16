@@ -679,7 +679,7 @@ return fuzzSuite;
   },
 
   // ============================================================================
-  // 4. FRONTEND: SQUAD CINEMA SITE / DESIGN SYSTEM (INSPIRADO NO OVERCLOCK.SH)
+  // 4. FRONTEND: SQUAD CINEMA SITE / DESIGN SYSTEM ALTA FIDELIDADE
   // ============================================================================
   'squad-frontend-cinema': {
     category: 'Frontend & UX',
@@ -690,7 +690,7 @@ return fuzzSuite;
     script: `
 const meta = {
   name: "squad-frontend-cinema",
-  description: "Squad estilo Overclock Cinema Site: DNA Visual + Copy + Componentes em Paralelo + Gate WCAG",
+  description: "Squad de Design System & Alta Fidelidade: DNA Visual + Copy + Componentes em Paralelo + Gate WCAG",
   phases: [
     { title: "Extração de DNA Visual", detail: "Define paleta, tipografia, grid, micro-interações e tokens Tailwind" },
     { title: "Produção Paralela de Panes", detail: "Constrói seções e animações simultaneamente" },

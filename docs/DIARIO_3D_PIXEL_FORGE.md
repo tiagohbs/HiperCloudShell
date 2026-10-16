@@ -112,3 +112,11 @@ Este documento registra todas as entregas de modelos procedurais 3D, configuraç
 - **Arquivo .blend Master Entregue**: `C:\Users\DEV\Documents\HiperCloudShell\dist\game\models\capivara_8vistas.blend`
 - **Ambiente Isolado**: Scratchpad (`uv venv blend --python 3.13` + bpy 5.2 fora do git)
 - **Status do Gate**: APROVADO (zero violacoes de VRAM / zero numpy.float64 bugs)
+
+## [2026-10-16T16:32:01.739Z] Render 8 Vistas e Modelagem a partir da PLANTA: capivara
+- **Camera Elevacao**: 24.0° (dimetrico RPG 2.5D)
+- **8 Vistas (360°)**: 0° (Sul), 45° (SE), 90° (Leste), 135° (NE), 180° (Norte), 225° (NW), 270° (Oeste), 315° (SW)
+- **Resolucao**: 256px (Master) -> 112px (Pixel Art 16-bit)
+- **Arquivo .blend Master Entregue**: `C:\Users\DEV\Documents\HiperCloudShell\dist\game\models\capivara_8vistas.blend`
+- **Ambiente Isolado**: Scratchpad (`uv venv blend --python 3.13` + bpy 5.2 fora do git)
+- **Status do Gate**: APROVADO (zero violacoes de VRAM / zero numpy.float64 bugs)

@@ -1099,6 +1099,121 @@ export default function App() {
     setActiveView('workflows');
   };
 
+  // Handler Unificado: Lançar Workflow Autônomo com Composição de Squads e Esforço Máximo
+  const handleLaunchWorkflow = async ({
+    prompt,
+    squadMode = 'auto',
+    selectedSquads = [],
+    provider: selectedProvider = provider,
+    effort: selectedEffort = effort,
+    tokenBudget: selectedBudget = maxTokensBudget,
+    unlimitedTokens: isUnlimited = unlimitedTokens
+  }) => {
+    if (selectedProvider && selectedProvider !== provider) setProvider(selectedProvider);
+    if (selectedEffort && selectedEffort !== effort) setEffort(selectedEffort);
+
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    const finalMission = prompt?.trim() || 'ultracode: executar pipeline autônomo';
+
+    const squadNames = selectedSquads.map((s) => s.title).join(', ');
+    const squadDetail =
+      squadMode === 'manual' && selectedSquads.length > 0
+        ? `[Squads Alocados: ${squadNames}]`
+        : '[Alocação: Decisão Dinâmica pelo Maestro]';
+
+    const fullPromptWithContext = `${squadDetail} ${finalMission}`;
+
+    let compositeScript = '';
+    if (squadMode === 'manual' && selectedSquads.length > 0) {
+      compositeScript =
+        `// Pipeline Multi-Squad Composto (${squadNames})\n` +
+        `const meta = {\n  name: "multi-squad-pipeline",\n  description: "${finalMission.replace(/"/g, '\\"')}",\n  squads: ${JSON.stringify(selectedSquads.map((s) => s.slug))}\n};\n\n` +
+        selectedSquads
+          .map(
+            (s, idx) =>
+              `// --- Fase ${idx + 1}: ${s.title} ---\nphase("${s.title}");\n${
+                s.script || `await agent("Executar missão do ${s.title}");`
+              }\n`
+          )
+          .join('\n') +
+        `\nreturn "Pipeline Multi-Squad concluído com sucesso!";`;
+    } else {
+      compositeScript =
+        `// Workflow Autônomo com Roteamento Dinâmico\n` +
+        `phase("Análise & DAG");\n` +
+        `await speculate("Analisar código e arquitetar DAG para: ${finalMission.replace(/"/g, '\\"')}");\n` +
+        `phase("Execução de Especialistas");\n` +
+        `await agent("${finalMission.replace(/"/g, '\\"')}");\n` +
+        `phase("Quality Gates");\n` +
+        `await verifyCmd("npm test");\n` +
+        `return "sucesso";`;
+    }
+
+    if (bridge?.submitPrompt) {
+      const run = await bridge.submitPrompt(fullPromptWithContext, {
+        script: compositeScript,
+        provider: selectedProvider,
+        effort: selectedEffort,
+        tokenBudget: isUnlimited ? 0 : selectedBudget
+      });
+      if (run) {
+        setWorkflowRuns((prev) => ({ ...prev, [run.id]: run }));
+        setSelectedRunId(run.id);
+        setEditingScript(run.script);
+        setActiveView('workflows');
+        return;
+      }
+    }
+
+    // Fallback Mock com visualização clara dos squads participantes
+    const mockRunId = `wf_multi_${Date.now()}`;
+    const mockRun = {
+      id: mockRunId,
+      prompt: fullPromptWithContext,
+      script: compositeScript,
+      meta: {
+        name: squadMode === 'manual' && squadNames ? squadNames : 'Workflow Autônomo Maestro',
+        description: finalMission,
+        squads: selectedSquads.map((s) => s.slug),
+        phases: []
+      },
+      status: 'running',
+      currentPhase: squadMode === 'manual' && selectedSquads[0] ? selectedSquads[0].title : 'Iniciando DAG do Maestro',
+      activeAgentsCount: selectedSquads.length > 0 ? selectedSquads.length : 2,
+      totalAgentsSpawned: selectedSquads.length > 0 ? selectedSquads.length : 2,
+      tokensUsed: 1200,
+      agents:
+        selectedSquads.length > 0
+          ? selectedSquads.map((s, idx) => ({
+              id: `ag-${idx + 1}`,
+              label: s.title,
+              phase: s.title,
+              provider: selectedProvider === 'hybrid' ? (idx % 2 === 0 ? 'claude' : 'antigravity') : selectedProvider,
+              effectiveEffort: selectedEffort,
+              status: 'running',
+              tokens: 600,
+              logs: [{ text: `[Worktree .worktrees/${s.slug}] Especialista ativo na missão: ${finalMission}` }]
+            }))
+          : [
+              {
+                id: 'ag-maestro-1',
+                label: 'Maestro Orchestrator',
+                phase: 'Orquestração Dinâmica',
+                provider: selectedProvider === 'hybrid' ? 'antigravity' : selectedProvider,
+                effectiveEffort: selectedEffort,
+                status: 'running',
+                tokens: 1200,
+                logs: [{ text: `[Maestro] Analisando missão e gerando sub-tarefas no DAG para: ${finalMission}` }]
+              }
+            ]
+    };
+
+    setWorkflowRuns((prev) => ({ ...prev, [mockRunId]: mockRun }));
+    setSelectedRunId(mockRunId);
+    setEditingScript(mockRun.script);
+    setActiveView('workflows');
+  };
+
   // Handlers de Execução do Workflow
   const handleApproveRun = async (runId, script, opts) => {
     const bridge = window.ultracodeAPI || window.hiperAPI;
@@ -1518,10 +1633,12 @@ export default function App() {
         squadCatalog={squadCatalog}
         onLaunchSquad={handleSelectSquad}
         onCustomWorkflow={handleCustomWorkflow}
+        onLaunchWorkflow={handleLaunchWorkflow}
         defaultProvider={provider}
         defaultEffort={effort}
         defaultBudget={unlimitedTokens ? 0 : maxTokensBudget}
         initialPrompt={workflowInitialPrompt}
+        activeProjectName={activeProject?.name || 'HiperCloudShell'}
       />
 
       <ApprovalGateModal

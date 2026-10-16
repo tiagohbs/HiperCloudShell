@@ -606,7 +606,7 @@ return await agent(
     });
 
     /**
-     * Primitiva harness(config): Inspirada no Overclock.sh.
+     * Primitiva harness(config): Blindagem de execução para subagentes autônomos.
      * Empacota { role, provider, model, effort, skills, isolation, schema } num especialista pronto.
      */
     const harness = (harnessConfig = {}) => {

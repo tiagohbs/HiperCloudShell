@@ -307,7 +307,7 @@ export default function DashboardView({
             <div>
               <h3 className="text-sm font-extrabold text-espresso-950 dark:text-white font-mono flex items-center gap-2">
                 <IconPalette className="w-4 h-4 text-gold-600 dark:text-gold-400" />
-                <span>Squads Recomendados (Overclock.sh)</span>
+                <span>Squads Multi-Agentes Recomendados</span>
               </h3>
               <p className="text-xs text-espresso-600 dark:text-denim-300 font-mono mt-0.5">
                 Templates com CLI, harness e gates pré-configurados

@@ -289,7 +289,7 @@ return "done";
   });
 
   // ==========================================================================
-  // 7. HARNESS PRIMITIVE (OVERCLOCK.SH HARNESS ARMOR)
+  // 7. HARNESS PRIMITIVE (AUTONOMOUS SUBAGENT ARMOR)
   // ==========================================================================
   test('Maestro harness(config) wraps subagents with roles, skills, effort, and provider', async () => {
     let capturedAgentCall = null;
