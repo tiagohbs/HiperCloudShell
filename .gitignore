@@ -5,6 +5,13 @@ node_modules/
 .worktrees/
 .maestro/
 
+# Compressed archives
+*.zip
+*.tar.gz
+*.7z
+zips_*/
+archives/
+
 # Build and distribution
 dist/
 build/
