@@ -171,6 +171,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('grid'); // 'grid' | 'workflows'
   const [prompt, setPrompt] = useState('ultracode: auditar integridade de worktrees e sincronizacao');
   const [effort, setEffort] = useState('ultracode'); // 'high' | 'ultracode'
+  const [provider, setProvider] = useState('hybrid'); // 'claude' | 'antigravity' | 'hybrid'
   const [dismissedKeyword, setDismissedKeyword] = useState(false);
 
   // Estados Ultracode Workflows
@@ -282,6 +283,14 @@ export default function App() {
     const bridge = window.ultracodeAPI || window.hiperAPI;
     if (bridge && typeof bridge.setEffort === 'function') {
       await bridge.setEffort(newEffort);
+    }
+  };
+
+  const changeProvider = async (newProvider) => {
+    setProvider(newProvider);
+    const bridge = window.ultracodeAPI || window.hiperAPI;
+    if (bridge && typeof bridge.setProvider === 'function') {
+      await bridge.setProvider(newProvider);
     }
   };
 
@@ -433,6 +442,36 @@ export default function App() {
               }`}
             >
               <IconZap /> /workflows ({Object.keys(workflowRuns).length})
+            </button>
+          </div>
+
+          {/* Seletor de Motor Dual Engine (Claude Code / Antigravity / Hybrid Monster) */}
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-lg text-xs">
+            <button
+              onClick={() => changeProvider('claude')}
+              className={`px-2.5 py-1 text-[11px] rounded-md transition ${
+                provider === 'claude' ? 'bg-orange-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Claude CLI
+            </button>
+            <button
+              onClick={() => changeProvider('antigravity')}
+              className={`px-2.5 py-1 text-[11px] rounded-md transition ${
+                provider === 'antigravity' ? 'bg-blue-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Antigravity (agy)
+            </button>
+            <button
+              onClick={() => changeProvider('hybrid')}
+              className={`px-2.5 py-1 text-[11px] rounded-md transition font-semibold ${
+                provider === 'hybrid'
+                  ? 'bg-gradient-to-r from-orange-600 via-violet-600 to-blue-600 text-white shadow-md shadow-violet-900/50'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              ⚡ Hybrid Monster
             </button>
           </div>
 
@@ -639,6 +678,56 @@ export default function App() {
                       className="flex-1 w-full bg-[#05070a] border border-slate-800 rounded-lg p-3 font-mono text-xs text-violet-200 focus:outline-none focus:border-violet-500 resize-none"
                     />
                   </div>
+
+                  {/* Subagentes Disparados com Badges de Motor Cross-Provider */}
+                  {activeRun.agents && activeRun.agents.length > 0 && (
+                    <div className="bg-[#05070a] border border-slate-800 rounded-lg p-2.5 max-h-44 overflow-y-auto">
+                      <div className="text-[11px] font-bold text-slate-400 mb-1.5 flex justify-between items-center">
+                        <span className="text-violet-300">Subagentes no Workflow ({activeRun.agents.length})</span>
+                        <span className="text-[10px] text-slate-500 font-mono">Cross-Provider Engine</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {activeRun.agents.map((ag) => (
+                          <div
+                            key={ag.id}
+                            className="flex items-center justify-between p-2 bg-slate-900/80 rounded border border-slate-800 text-[11px]"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold ${
+                                  ag.provider === 'antigravity'
+                                    ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                                    : ag.provider === 'claude'
+                                    ? 'bg-orange-950 text-orange-300 border border-orange-800'
+                                    : 'bg-violet-950 text-violet-300 border border-violet-800'
+                                }`}
+                              >
+                                {ag.provider === 'antigravity' ? 'agy' : ag.provider === 'claude' ? 'claude' : 'hybrid'}
+                              </span>
+                              <span className="font-semibold text-slate-200">{ag.label}</span>
+                              <span className="text-[10px] text-slate-400">[{ag.phase}]</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {ag.tokens ? (
+                                <span className="text-[10px] font-mono text-slate-400">{ag.tokens} tok</span>
+                              ) : null}
+                              <span
+                                className={`text-[10px] uppercase font-mono font-semibold ${
+                                  ag.status === 'completed'
+                                    ? 'text-emerald-400'
+                                    : ag.status === 'failed'
+                                    ? 'text-rose-400'
+                                    : 'text-amber-400'
+                                }`}
+                              >
+                                {ag.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {activeRun.finalResult && (
                     <div className="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs font-mono text-emerald-300 max-h-36 overflow-y-auto">

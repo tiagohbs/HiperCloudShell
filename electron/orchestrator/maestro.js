@@ -83,20 +83,31 @@ export class MaestroOrchestrator {
     );
   }
 
-  // 1ª Fase: Claude/Gemini escreve o script JavaScript de Dynamic Workflow
+  // 1ª Fase: Gera o script JavaScript de Dynamic Workflow (Claude / Antigravity / Hybrid)
   async planDynamicWorkflow(prompt, effort = 'xhigh') {
     const cleanPrompt = (prompt || '').replace(/\bultracode:?/gi, '').trim();
     const systemPrompt = `
-Voce e o gerador de Dynamic Workflows do modo Ultracode.
-Escreva APENAS codigo JavaScript puro (sem blocos markdown, sem import() e sem require()).
-Disponivel no escopo global:
+Você é o gerador de Dynamic Workflows Híbridos (Claude Code + Google Antigravity).
+Escreva APENAS código JavaScript puro (sem blocos markdown, sem import() e sem require()).
+Primitivas globais disponíveis:
 - const meta = { name, description, phases: [{ title, detail }] }
-- await agent(prompt, { label, phase, schema, model, agentType, isolation: "worktree" })
+- await agent(prompt, {
+    label,
+    phase,
+    provider: "claude" | "antigravity", // Permite escolher o motor ideal para cada subtarefa
+    model,
+    schema,
+    isolation: "worktree"
+  })
 - await pipeline(items, async (item, index) => { ... })
 - await parallel([ () => agent(...), ... ])
 - phase(title)
-- args (argumentos estruturados)
-Finalize o script com "return <resultadoFinal>;" para entregar a sintese a sessao principal.
+- args
+
+Estratégia recomendada para o modo Monstro (Cross-Provider Adversarial):
+1. Use "antigravity" para mapeamento rápido e análise em leque (pipeline).
+2. Na fase de Verificação Adversarial, use o motor oposto ("claude") para auditar ceticamente os achados do Antigravity (ou vice-versa).
+3. Finalize com "return <resultadoFinal>;".
 `.trim();
 
     if (this.llmAdapter?.generateWorkflowScript) {
@@ -107,25 +118,26 @@ Finalize o script com "return <resultadoFinal>;" para entregar a sintese a sessa
       });
     }
 
-    // Script canonico padrao (Descoberta -> Fan-out em Pipeline -> Verificacao Adversarial -> Sintese)
+    // Script Híbrido Canónico (Antigravity + Claude em Verificação Cruzada)
     return `
 const meta = {
-  name: "ultracode-audit-and-verify",
+  name: "hybrid-ultracode-monster",
   description: ${JSON.stringify(cleanPrompt)},
   phases: [
-    { title: "Descoberta", detail: "Mapeia alvos independentes no repositorio" },
-    { title: "Analise em Leque", detail: "Analisa cada alvo em paralelo via pipeline()" },
-    { title: "Verificacao Adversarial", detail: "Agentes ceticos tentam refutar cada achado" },
-    { title: "Sintese", detail: "Consolida apenas achados confirmados" }
+    { title: "Descoberta (Antigravity)", detail: "Mapeamento rápido de alvos com agy" },
+    { title: "Fan-Out Híbrido", detail: "Análise concorrente em pipeline()" },
+    { title: "Verificação Cruzada (Claude vs Antigravity)", detail: "Um motor tenta refutar os achados do outro" },
+    { title: "Síntese Executiva", detail: "Consolidação final validada" }
   ]
 };
 
-phase("Descoberta");
+phase("Descoberta (Antigravity)");
 const discovery = await agent(
-  \`Identifique os modulos ou arquivos relevantes para a tarefa: \${${JSON.stringify(cleanPrompt)}}. Devolva uma lista objetiva.\`,
+  \`Identifique e mapeie os modulos ou arquivos criticos para: \${${JSON.stringify(cleanPrompt)}}\`,
   {
-    label: "discover-targets",
-    phase: "Descoberta",
+    label: "agy-discover",
+    phase: "Descoberta (Antigravity)",
+    provider: "antigravity",
     schema: {
       type: "object",
       properties: { targets: { type: "array", items: { type: "string" } } },
@@ -136,17 +148,20 @@ const discovery = await agent(
 
 const targets = (discovery?.targets || []).slice(0, 25);
 
-phase("Analise em Leque");
-const rawFindings = await pipeline(targets, async (target) => {
+phase("Fan-Out Híbrido");
+const rawFindings = await pipeline(targets, async (target, idx) => {
+  const provider = idx % 2 === 0 ? "antigravity" : "claude";
   return await agent(
-    \`Analise profundamente "\${target}" para a tarefa: \${${JSON.stringify(cleanPrompt)}}.\`,
+    \`Analise profundamente "\${target}" para: \${${JSON.stringify(cleanPrompt)}}\`,
     {
-      label: \`analyze:\${target}\`,
-      phase: "Analise em Leque",
+      label: \`\${provider}:analyze:\${target}\`,
+      phase: "Fan-Out Híbrido",
+      provider,
       schema: {
         type: "object",
         properties: {
           target: { type: "string" },
+          analyzer: { type: "string" },
           hasIssue: { type: "boolean" },
           finding: { type: "string" }
         },
@@ -158,13 +173,16 @@ const rawFindings = await pipeline(targets, async (target) => {
 
 const candidates = rawFindings.filter((f) => f && f.hasIssue);
 
-phase("Verificacao Adversarial");
-const verified = await pipeline(candidates, async (item) => {
+phase("Verificação Cruzada (Claude vs Antigravity)");
+const verified = await pipeline(candidates, async (item, idx) => {
+  // O revisor usa sempre o motor OPOSTO ao que gerou o achado
+  const reviewerProvider = idx % 2 === 0 ? "claude" : "antigravity";
   const verdict = await agent(
-    \`Atue como revisor cetico. Tente refutar este achado em "\${item.target}": "\${item.finding}". Confirme apenas se for real.\`,
+    \`Atue como revisor cetico adversarial. Tente refutar este achado em "\${item.target}": "\${item.finding}". Confirme apenas se houver prova concreta no codigo.\`,
     {
-      label: \`verify:\${item.target}\`,
-      phase: "Verificacao Adversarial",
+      label: \`\${reviewerProvider}:cross-verify:\${item.target}\`,
+      phase: "Verificação Cruzada (Claude vs Antigravity)",
+      provider: reviewerProvider,
       schema: {
         type: "object",
         properties: { confirmed: { type: "boolean" }, rationale: { type: "string" } },
@@ -172,15 +190,19 @@ const verified = await pipeline(candidates, async (item) => {
       }
     }
   );
-  return verdict?.confirmed ? { ...item, rationale: verdict.rationale } : null;
+  return verdict?.confirmed ? { ...item, verifiedBy: reviewerProvider, rationale: verdict.rationale } : null;
 });
 
 const confirmedFindings = verified.filter(Boolean);
 
-phase("Sintese");
+phase("Síntese Executiva");
 return await agent(
-  \`Gere o relatorio executivo final com base nos achados verificados: \${JSON.stringify(confirmedFindings)}\`,
-  { label: "synthesize-report", phase: "Sintese" }
+  \`Sintetize o plano de ação final validado por Claude + Antigravity: \${JSON.stringify(confirmedFindings)}\`,
+  {
+    label: "hybrid-synthesis",
+    phase: "Síntese Executiva",
+    provider: "claude"
+  }
 );
 `.trim();
   }
@@ -265,6 +287,7 @@ return await agent(
           id: agentId,
           label: agentOptions.label || `agent-${callIndex + 1}`,
           phase: agentOptions.phase || run.currentPhase,
+          provider: agentOptions.provider || this.llmAdapter?.defaultProvider || 'hybrid',
           isolation: agentOptions.isolation || 'none'
         });
 
@@ -292,8 +315,12 @@ return await agent(
           const rawResponse = await this.runSubagentWorker({
             prompt: `${agentPrompt}${schemaInstruction}${retryFeedback}`,
             cwd: workingDir,
+            provider: agentOptions.provider,
             model: agentOptions.model,
             agentType: agentOptions.agentType,
+            schema: agentOptions.schema,
+            label: agentOptions.label,
+            phase: agentOptions.phase || run.currentPhase,
             effort,
             acceptEdits: true,
             signal: abortController.signal
@@ -418,21 +445,23 @@ return await agent(
     return await this.executeWorkflowRun(runId, options);
   }
 
-  async runSubagentWorker({ prompt, cwd, model, effort, acceptEdits, signal }) {
+  async runSubagentWorker({ prompt, cwd, provider, model, agentType, schema, label, phase, effort, acceptEdits, signal }) {
     if (this.llmAdapter?.runAgent) {
-      return await this.llmAdapter.runAgent({ prompt, cwd, model, effort, acceptEdits, signal });
+      return await this.llmAdapter.runAgent({ prompt, cwd, provider, model, agentType, schema, label, phase, effort, acceptEdits, signal });
     }
     // Fallback de execucao deterministica caso llmAdapter externo nao tenha sido configurado
     return {
       output: JSON.stringify({
         targets: ['electron/main.js', 'src/App.jsx'],
         target: 'src/App.jsx',
+        analyzer: provider || 'antigravity',
         hasIssue: true,
         finding: 'Verificacao automatica concluida com sucesso.',
         confirmed: true,
         rationale: 'Validado pelo subagente em modo isolado.'
       }),
-      tokens: 320
+      tokens: 320,
+      provider: provider || 'antigravity'
     };
   }
 

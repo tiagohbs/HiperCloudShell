@@ -3,7 +3,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { TerminalManager } from './term.js';
+import { TerminalManager, DualEngineAdapter } from './term.js';
 import { MaestroOrchestrator } from './orchestrator/maestro.js';
 import { BlackboardManager } from './orchestrator/blackboard.js';
 import { WorktreeManager } from './orchestrator/worktree-manager.js';
@@ -17,11 +17,17 @@ let termManager = null;
 let maestro = null;
 let blackboard = null;
 let worktreeManager = null;
+let llmAdapter = null;
 
-export function setupUltracodeIPC(window, projectRoot = repoRoot, llmAdapter = null) {
+export function setupUltracodeIPC(window, projectRoot = repoRoot, customAdapter = null) {
   blackboard = new BlackboardManager(projectRoot);
   worktreeManager = new WorktreeManager(projectRoot);
   termManager = new TerminalManager(window);
+  llmAdapter = customAdapter || new DualEngineAdapter({
+    defaultProvider: 'hybrid', // Usa Claude + Antigravity em conjunto por padrão
+    projectRoot
+  });
+
   maestro = new MaestroOrchestrator({
     repoRoot: projectRoot,
     terminalManager: termManager,
@@ -31,13 +37,31 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, llmAdapter = n
     llmAdapter
   });
 
+  // Eventos em tempo real do Blackboard e do Streaming dos CLIs
   blackboard.on('workflow:update', (runSnapshot) => {
     if (window && !window.isDestroyed()) {
       window.webContents.send('ultracode:workflow-update', runSnapshot);
     }
   });
 
-  // Handlers do modo Ultracode (Dynamic Workflows)
+  llmAdapter.on('agent:stream', (streamEvent) => {
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('ultracode:agent-stream', streamEvent);
+    }
+  });
+
+  termManager.on('term:data', (payload) => {
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('ultracode:term-data', payload);
+    }
+  });
+
+  // Alterna entre 'claude', 'antigravity' ou 'hybrid'
+  ipcMain.handle('ultracode:set-provider', (_event, provider) => {
+    llmAdapter.defaultProvider = provider;
+    return { provider: llmAdapter.defaultProvider };
+  });
+
   ipcMain.handle('ultracode:set-effort', (_event, effortLevel) => {
     blackboard.sessionEffort = effortLevel; // 'high' | 'ultracode'
     return { effort: blackboard.sessionEffort };
@@ -46,7 +70,14 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, llmAdapter = n
   ipcMain.handle('ultracode:submit-prompt', async (_event, { prompt, options = {} }) => {
     const detection = maestro.detectUltracodeTrigger(prompt, options);
     if (!detection.shouldRunWorkflow) {
-      return { mode: 'single_turn', effort: detection.effort };
+      const directResult = await llmAdapter.runAgent({
+        prompt,
+        cwd: projectRoot,
+        provider: options?.provider,
+        effort: detection.effort,
+        acceptEdits: false
+      });
+      return { mode: 'single_turn', effort: detection.effort, result: directResult };
     }
     const runState = await maestro.prepareWorkflowRun(prompt, options);
     return { mode: 'workflow', effort: detection.effort, run: runState };
@@ -75,6 +106,14 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, llmAdapter = n
     return blackboard.saveWorkflowToDisk(runId, name);
   });
 
+  // Endpoints de Terminal PTY (para rodar `claude` ou `agy` interativos)
+  ipcMain.handle('ultracode:term-create', (_event, { termId, cwd }) =>
+    termManager.createSession(termId, { cwd: cwd || projectRoot })
+  );
+  ipcMain.handle('ultracode:term-write', (_event, { termId, input }) =>
+    termManager.write(termId, input)
+  );
+
   // Handlers classicos do DAG & Grid de Terminais
   ipcMain.handle('maestro:run-dag', async (_event, dagTasks) => {
     return await maestro.executeDagPlan(dagTasks);
@@ -92,7 +131,7 @@ export function setupUltracodeIPC(window, projectRoot = repoRoot, llmAdapter = n
     termManager.killPane(paneId);
   });
 
-  return { blackboard, worktreeManager, maestro, termManager };
+  return { blackboard, worktreeManager, maestro, termManager, llmAdapter };
 }
 
 export function setupMaestroIpc(window, targetRepoRoot = repoRoot) {

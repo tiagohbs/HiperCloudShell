@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 // API Oficial do Modo Ultracode & Dynamic Workflows
 const ultracodeAPI = {
+  setProvider: (provider) => ipcRenderer.invoke('ultracode:set-provider', provider),
   setEffort: (effort) => ipcRenderer.invoke('ultracode:set-effort', effort),
   submitPrompt: (prompt, options) =>
     ipcRenderer.invoke('ultracode:submit-prompt', { prompt, options }),
@@ -11,10 +12,17 @@ const ultracodeAPI = {
   pauseRun: (runId) => ipcRenderer.invoke('ultracode:pause-run', runId),
   resumeRun: (runId) => ipcRenderer.invoke('ultracode:resume-run', runId),
   saveWorkflow: (runId, name) => ipcRenderer.invoke('ultracode:save-workflow', { runId, name }),
+  termCreate: (termId, cwd) => ipcRenderer.invoke('ultracode:term-create', { termId, cwd }),
+  termWrite: (termId, input) => ipcRenderer.invoke('ultracode:term-write', { termId, input }),
   onWorkflowUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('ultracode:workflow-update', handler);
     return () => ipcRenderer.removeListener('ultracode:workflow-update', handler);
+  },
+  onAgentStream: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('ultracode:agent-stream', handler);
+    return () => ipcRenderer.removeListener('ultracode:agent-stream', handler);
   }
 };
 
